@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.8';
+const VERSION = '1.9';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -81,8 +81,24 @@ function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { toast('Speichern nicht möglich (Speicher voll?)'); }
+    syncSoon();
   }, 150);
 }
+/* Tabellen-Backup (Google Apps Script). Adresse und Passwort liegen separat in localStorage, nicht in den Daten. */
+const SYNC_KEY = 'tracker-sync';
+const syncCfg = () => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch (e) { return {}; } };
+let syncTimer = null;
+async function syncNow(manual) {
+  const c = syncCfg(); if (!c.url || !c.key) { if (manual) toast('Erst Adresse und Passwort eintragen'); return; }
+  if (!navigator.onLine) { c.pending = 1; localStorage.setItem(SYNC_KEY, JSON.stringify(c)); if (manual) toast('Offline: wird später gesichert'); return; }
+  try {
+    await fetch(c.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: c.key, db: DB }) });
+    c.last = Date.now(); c.pending = 0; localStorage.setItem(SYNC_KEY, JSON.stringify(c));
+    if (manual) toast('An Tabelle gesendet');
+  } catch (e) { c.pending = 1; localStorage.setItem(SYNC_KEY, JSON.stringify(c)); if (manual) toast('Senden fehlgeschlagen'); }
+}
+function syncSoon() { if (!syncCfg().url) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 20000); }
+window.addEventListener('online', () => { if (syncCfg().pending) syncNow(false); });
 window.addEventListener('pagehide', () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { } });
 const day = (d, create) => DB.days[d] || (create ? (DB.days[d] = {}) : {});
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
@@ -502,6 +518,11 @@ function viewSettings() {
     <small class="mut">Einfügen im Chat zusammen mit dem Screenshot. Claude antwortet mit dem JSON für den Import.</small>
     <div class="lbl">Export</div>
     <div class="row"><button class="btn" data-act="copyexp">Backup kopieren</button><button class="btn" data-act="dlexp">Als Datei</button></div>
+    <div class="lbl">Backup in Google Tabelle</div>
+    <label class="mut">Web-App-Adresse<br><input type="url" data-sync="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(syncCfg().url || '')}"></label>
+    <label class="mut">Passwort<br><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" value="${esc(syncCfg().key || '')}"></label>
+    <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
+    <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Danach sichert die App ca. 20 Sekunden nach jeder Änderung automatisch.</small>
     <div class="lbl">Gefahrenzone</div><button class="btn danger" data-act="wipe">Alle Daten löschen</button></details>
   <details class="card"><summary>App</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
     <button class="btn" data-act="update">Nach Update suchen</button>
@@ -601,6 +622,7 @@ const A = {
   cfgdel(el) { const k = el.dataset.kind; DB.cfg[k] = DB.cfg[k].filter(x => x.id !== el.dataset.id); save(); keepOpen = k; },
   imp(el) { doImport(el.dataset.m); },
   copyprompt() { copy(CLAUDE_PROMPT, 'Auftrag kopiert'); return 'noRender'; },
+  syncnow() { syncNow(true); return 'noRender'; },
   copyexp() { copy(JSON.stringify(DB), 'Backup kopiert'); return 'noRender'; },
   dlexp() {
     try { const b = new Blob([JSON.stringify(DB)], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'tracker-backup-' + todayStr() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download nicht möglich, nimm „Backup kopieren“'); }
@@ -740,6 +762,7 @@ document.addEventListener('change', e => {
     if (t.dataset.p === 'type') toast('Gespeichert');
     return;
   }
+  if (t.dataset.sync) { const c = syncCfg(); c[t.dataset.sync] = t.value.trim(); localStorage.setItem(SYNC_KEY, JSON.stringify(c)); toast('Gespeichert'); return; }
   if (t.dataset.cfgv) { const k = t.dataset.cfgv, v = Number(t.value); DB.cfg[k] = k === 'halfLife' ? Math.min(12, Math.max(1, v || 5)) : (v || 400); save(); }
 });
 document.addEventListener('input', e => {

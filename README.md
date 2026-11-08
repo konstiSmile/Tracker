@@ -58,3 +58,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 1.8
 - Koffein: Die Anzeige "Um 22 Uhr noch im Körper" und die Markierung in der Kurve beziehen sich jetzt fest auf 22 Uhr (vorher: Zubettgehzeit). Der Verlauf-Vergleich "Restkoffein beim Zubettgehen" bleibt bei der echten Bettzeit.
+
+### 1.9
+- Backup in Google Tabelle: Einstellungen → Daten, Backup und Import → „Backup in Google Tabelle“. Adresse der Apps-Script-Web-App und Passwort eintragen (Skript: `sheets-backup.gs`). Die App sendet ca. 20 s nach jeder Änderung das komplette Backup (Blätter „Rohdaten“ und „Tage“); offline wird nachgeholt. Adresse und Passwort liegen separat unter `tracker-sync` im localStorage.
