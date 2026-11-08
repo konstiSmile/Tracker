@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.3';
+const VERSION = '1.4';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -590,12 +590,27 @@ const A = {
     if (el.dataset.sure) { DB = norm({ v: 1 }); save(); toast('Alle Daten gelöscht'); S.impMsg = ''; return; }
     el.dataset.sure = 1; el.textContent = 'Wirklich alles löschen? Nochmal tippen'; return 'noRender';
   },
-  update() {
-    if (!('serviceWorker' in navigator)) { toast('Nicht unterstützt'); return 'noRender'; }
-    navigator.serviceWorker.getRegistration().then(r => r ? r.update().then(() => toast('Du hast die aktuelle Version bzw. sie wird beim nächsten Start geladen')) : toast('Kein Service Worker aktiv'));
+  update() { checkUpdate(true); return 'noRender'; },
+  async applyupd() {
+    try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) { }
+    try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { }
+    location.replace(location.pathname + '?u=' + Date.now());
     return 'noRender';
   }
 };
+/* Update-Prüfung: holt app.js ohne Zwischenspeicher und vergleicht die Version. Daten bleiben unberührt. */
+async function checkUpdate(manual) {
+  try {
+    const r = await fetch('app.js?_=' + Date.now(), { cache: 'no-store' }), m = (await r.text()).match(/const VERSION = '([^']+)'/);
+    if (!m) throw new Error('keine Version');
+    if (m[1] !== VERSION) { const b = $('#upd'); b.innerHTML = `Update ${esc(m[1])} bereit <button data-act="applyupd">Neu laden</button>`; b.hidden = false; }
+    else if (manual) toast('Du hast die neueste Version (' + VERSION + ')');
+    try { localStorage.setItem('tracker-upd', String(Date.now())); } catch (e) { }
+  } catch (e) { if (manual) toast('Keine Verbindung: Update-Prüfung nicht möglich'); }
+}
+function autoCheck() { let t = 0; try { t = Number(localStorage.getItem('tracker-upd')) || 0; } catch (e) { } if (Date.now() - t > 10 * 60 * 1000) checkUpdate(false); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoCheck(); });
+setTimeout(autoCheck, 1500);
 let keepOpen = null;
 function chipSet(s, k, el) { const o = sec(S.date, s), v = el.dataset.v; if (o[k] === v) delete o[k]; else o[k] = v; cleanDay(S.date); save(); }
 function copy(txt, msg) {

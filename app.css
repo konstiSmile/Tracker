@@ -101,3 +101,6 @@ details.card>*:not(summary){margin-top:14px}
 .wkt td:first-child{text-align:left;color:var(--mut);font-size:.72rem;padding-right:4px;white-space:nowrap}
 .wkt .today{color:var(--acc)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#upd{position:fixed;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 84px);max-width:532px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--acc);color:var(--on-acc);padding:12px 16px;border-radius:20px;z-index:25;font-size:.92rem;font-weight:600;box-shadow:var(--shadow)}
+#upd[hidden]{display:none}
+#upd button{background:color-mix(in srgb,var(--on-acc) 14%,transparent);padding:8px 14px;border-radius:14px;font-weight:700}

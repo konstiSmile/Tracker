@@ -40,3 +40,9 @@ Weiches Design: gedämpfte Salbei-/Apricot-Töne, warmes Dunkel und Creme im Hel
 
 ## Version 1.3
 Farbschema „Bergnebel“ nach Vorlage des Nutzers: #F8DEBD (Pfirsichcreme), #D1B091 (Sand), #9C8E8D (Mauvegrau), #4E4C4F (Anthrazit), #22211F (fast Schwarz). Dunkel: warmes Schwarz mit Sand als Akzent; Hell: Creme mit dunklem Sandbraun. Stimmungsfarben abgestimmt (Rosenstaub bis Moos-/Salbeigrün). Icons in den neuen Farben.
+
+## Version 1.4 (Update-Mechanik)
+- Service Worker holt Dateien mit `cache: 'no-cache'` (prüft beim Server nach, umgeht die 10 Minuten Zwischenspeicher von GitHub Pages).
+- Echte Update-Prüfung: lädt `app.js` ohne Cache und vergleicht `VERSION`. Beim Start und beim Zurückkehren in die App (höchstens alle 10 Min.) sowie über Einstellungen → App → „Nach Update suchen“. Bei neuer Version erscheint unten „Update … bereit · Neu laden“ (leert Zwischenspeicher und Service Worker, Daten in `localStorage` bleiben).
+- **Bei jedem Release drei Stellen erhöhen:** `VERSION` in `app.js`, `?v=` an `app.js` in `index.html`, `CACHE` in `sw.js`.
+- Achtung: Lernkiste und Tracker liegen unter demselben Ursprung (`konstismile.github.io`). „Website-Daten löschen“ in Safari löscht die Daten beider Apps.

@@ -1,6 +1,6 @@
 // Offline-Speicher: erst Netz (immer aktuell), sonst Zwischenspeicher.
 // Bei jeder Änderung die Version erhöhen.
-const CACHE = 'tracker-v4';
+const CACHE = 'tracker-v5';
 const FILES = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
@@ -8,6 +8,6 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).then(res => { if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return res; })
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(res => { if (res && res.ok) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return res; })
     .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
