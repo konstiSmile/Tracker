@@ -68,3 +68,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 1.11
 - Fix: app.css wird jetzt mit Versionsnummer geladen, damit neue Stile (Passwortfeld) sicher ankommen.
+
+### 1.12
+- Sport: neue Option „Pendelweg 🚴“ (≈3–4 km, `commute:true`, Standard 15 min, leicht). Chip mit bläulicher Umrandung; Eintrag trägt `c:1`. Verlauf → Sport: Tage nur mit Pendelweg und die Balken in „Nach Sportart“ sind blau statt grün. Migration `cfg.v = 4` ergänzt Pendelweg bei bestehenden Daten.

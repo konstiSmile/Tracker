@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.11';
+const VERSION = '1.12';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -25,7 +25,7 @@ const QS = ['Was hat dir heute gutgetan?', 'Was hat dich heute belastet?', 'Wof�
 const MCOL = i => `var(--m${i})`;
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 5, v: 3,
+  theme: 'light', limit: 400, halfLife: 5, v: 4,
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -47,7 +47,8 @@ const DEF_CFG = {
     { id: 'kraft', name: 'Krafttraining', e: '🏋️' }, { id: 'schwimmen', name: 'Schwimmen', e: '🏊' },
     { id: 'yoga', name: 'Yoga / Dehnen', e: '🧘' }, { id: 'wandern', name: 'Wandern', e: '🥾' },
     { id: 'spazieren', name: 'Spazieren', e: '🚶' }, { id: 'ball', name: 'Ballsport', e: '⚽' },
-    { id: 'klettern', name: 'Klettern', e: '🧗' }
+    { id: 'klettern', name: 'Klettern', e: '🧗' },
+    { id: 'pendel', name: 'Pendelweg', e: '🚴', km: '3–4', commute: true }
   ],
   habits: [
     { id: 'h1', name: 'Draußen an der Luft', type: 'pos', e: '🌳' },
@@ -73,7 +74,8 @@ function norm(r) {
   r.cfg = Object.assign(c, r.cfg || {});
   if (sv < 2) DEF_CFG.coffee.forEach(d => { if (!r.cfg.coffee.some(x => x.id === d.id)) r.cfg.coffee.push(JSON.parse(JSON.stringify(d))); });
   if (sv < 3 && r.cfg.theme === 'dark') r.cfg.theme = 'light';   // Version 1.5: helleres Design als neuer Standard
-  r.cfg.v = 3;
+  if (sv < 4 && !r.cfg.sports.some(x => x.id === 'pendel')) r.cfg.sports.push(JSON.parse(JSON.stringify(DEF_CFG.sports.find(x => x.id === 'pendel'))));   // Version 1.12: Pendelweg
+  r.cfg.v = 4;
   return r;
 }
 let saveTimer = 0;
@@ -124,6 +126,7 @@ const sleepDur = s => {
   return s.dur ?? null;
 };
 const coffeeMg = d => (day(d).coffee || []).reduce((a, c) => a + (c.mg || 0), 0);
+const isCommute = s => !!(s.c || s.name === 'Pendelweg');
 const sportMin = d => (day(d).sport || []).reduce((a, s) => a + (s.min || 0), 0);
 const allDates = () => Object.keys(DB.days).filter(d => Object.keys(DB.days[d]).length).sort();
 function firstTracked() { const a = allDates(); return a[0] || todayStr(); }
@@ -259,7 +262,7 @@ function viewHeute() {
   const cr = rankItems(DB.cfg.coffee, 'coffee', d), sr = rankItems(DB.cfg.sports, 'sport', d);
   const when = isToday ? 'Oft um diese Zeit' : 'Oft an diesem Wochentag';
   const cChip = (c, fav) => `<button class="chip ${fav ? 'fav' : ''}" data-act="cadd" data-id="${c.id}">${c.e || '☕'} ${esc(c.name)}<small>${c.est ? '≈' : ''}${c.mg}</small></button>`;
-  const sChip = (x, fav) => `<button class="chip ${fav ? 'fav' : ''}" data-act="sportopen" data-id="${x.id}">${x.e || '🏅'} ${esc(x.name)}</button>`;
+  const sChip = (x, fav) => `<button class="chip ${fav ? 'fav' : ''} ${x.commute ? 'pend' : ''}" data-act="sportopen" data-id="${x.id}">${x.e || '🏅'} ${esc(x.name)}${x.km ? `<small>≈${esc(x.km)} km</small>` : ''}</button>`;
   const newChip = `<button class="chip" data-act="sportopen" data-id="_new">＋ Neu</button>`;
   const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">↺ ${l}<small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
@@ -311,7 +314,7 @@ function viewHeute() {
     ${copyBtns('sport')}
     ${sr.top.length && sr.rest.length ? `<button class="more" data-act="tog" data-k="smore">${S.open.smore ? 'Weniger Sportarten' : `Weitere Sportarten (${sr.rest.length})`}</button>` : ''}
     ${(!sr.top.length || S.open.smore) ? `<div class="chips sub">${sr.rest.map(x => sChip(x)).join('')}${sr.top.length ? '' : newChip}</div>` : ''}
-    ${sp.map(x => `<div class="ent"><span class="t">${x.t || ''}</span><span class="grow">${x.e || ''} ${esc(x.name)} <small>${x.min} min${x.int ? ' · ' + ['leicht', 'mittel', 'hart'][x.int - 1] : ''}</small></span><button class="x" data-act="sdel" data-id="${x.id}">✕</button></div>`).join('')}
+    ${sp.map(x => `<div class="ent${isCommute(x) ? ' pend' : ''}"><span class="t">${x.t || ''}</span><span class="grow">${x.e || ''} ${esc(x.name)} <small>${x.min} min${x.int ? ' · ' + ['leicht', 'mittel', 'hart'][x.int - 1] : ''}</small></span><button class="x" data-act="sdel" data-id="${x.id}">✕</button></div>`).join('')}
   </section>
 
   <section class="card"><h3>Gewohnheiten</h3>
@@ -422,25 +425,25 @@ function vSport() {
   const c = 11, g = 2, W = weeks * (c + g) + 24;
   let svg = `<svg width="${W}" height="${7 * (c + g) + 16}">`, lastM = -1;
   for (let i = 0; i < nd; i++) {
-    const dt = new Date(Y, 0, 1 + i), w = Math.floor((i + off) / 7), r = (i + off) % 7, d = ds(dt), mn = sportMin(d);
+    const dt = new Date(Y, 0, 1 + i), w = Math.floor((i + off) / 7), r = (i + off) % 7, d = ds(dt), mn = sportMin(d), onlyC = mn > 0 && (day(d).sport || []).every(isCommute);
     if (r === 0 && dt.getMonth() !== lastM) { lastM = dt.getMonth(); svg += `<text x="${w * (c + g)}" y="9">${MONTHS[lastM]}</text>`; }
     const a = mn === 0 ? 0 : mn < 30 ? .35 : mn < 60 ? .6 : mn < 90 ? .8 : 1;
-    svg += `<rect x="${w * (c + g)}" y="${14 + r * (c + g)}" width="${c}" height="${c}" rx="2.5" fill="${a ? 'var(--pos)' : 'var(--card2)'}" opacity="${a || 1}"/>`;
+    svg += `<rect x="${w * (c + g)}" y="${14 + r * (c + g)}" width="${c}" height="${c}" rx="2.5" fill="${a ? (onlyC ? 'var(--com)' : 'var(--pos)') : 'var(--card2)'}" opacity="${a || 1}"/>`;
   }
   svg += '</svg>';
   const per = {}; let sess = 0, mins = 0, act = new Set();
   Object.keys(DB.days).filter(d => d.startsWith(Y + '-')).forEach(d => (DB.days[d].sport || []).forEach(s => {
-    const k = s.name; const o = per[k] || (per[k] = { e: s.e, n: 0, m: 0, mo: Array(12).fill(0) });
+    const k = s.name; const o = per[k] || (per[k] = { e: s.e, c: isCommute(s), n: 0, m: 0, mo: Array(12).fill(0) });
     o.n++; o.m += s.min || 0; o.mo[parse(d).getMonth()] += s.min || 0; sess++; mins += s.min || 0; act.add(d);
   }));
   const rows = Object.entries(per).sort((a, b) => b[1].m - a[1].m).map(([k, o]) => {
     const mx = Math.max(...o.mo, 1);
-    const bars = o.mo.map((v, i) => `<rect x="${i * 9}" y="${22 - v / mx * 22}" width="7" height="${v / mx * 22}" rx="1.5" fill="var(--pos)"/>`).join('');
+    const bars = o.mo.map((v, i) => `<rect x="${i * 9}" y="${22 - v / mx * 22}" width="7" height="${v / mx * 22}" rx="1.5" fill="${o.c ? 'var(--com)' : 'var(--pos)'}"/>`).join('');
     return `<div class="ent"><span class="grow">${o.e || ''} ${esc(k)}<br><small>${o.n}× · ${Math.floor(o.m / 60)} h ${o.m % 60} min</small></span><svg width="107" height="24">${bars}</svg></div>`;
   }).join('');
   return `<div class="dhead"><button data-act="yprev">‹</button><div><b>${Y}</b></div><button data-act="ynext" ${Y >= new Date().getFullYear() ? 'disabled' : ''}>›</button></div>
   <section class="card"><div class="stat"><div><span class="big">${sess}</span><small>Einheiten</small></div><div><span class="big">${act.size}</span><small>aktive Tage</small></div><div><span class="big">${Math.round(mins / 60)}</span><small>Stunden</small></div></div>
-  <div class="hscroll">${svg}</div><small>Dunkler = mehr Minuten an dem Tag</small></section>
+  <div class="hscroll">${svg}</div><small>Dunkler = mehr Minuten an dem Tag · <span style="color:var(--com)">■</span> nur Pendelweg, <span style="color:var(--pos)">■</span> anderer Sport</small></section>
   <section class="card"><h3>Nach Sportart (Balken: Minuten je Monat)</h3>${rows || '<small>Noch keine Einheiten in diesem Jahr.</small>'}</section>`;
 }
 function vMuster() {
@@ -563,7 +566,7 @@ const A = {
   sdel(el) { const a = sec(S.date, 'sport'); const i = a.findIndex(x => x.id === el.dataset.id); if (i >= 0) a.splice(i, 1); cleanDay(S.date); save(); },
   sportopen(el) {
     const id = el.dataset.id, s = DB.cfg.sports.find(x => x.id === id);
-    S.sp = { id, name: s ? s.name : '', e: s ? s.e : '🏅', min: 30, int: 2, t: S.date === todayStr() ? nowT() : '' };
+    S.sp = { id, name: s ? s.name : '', e: s ? s.e : '🏅', c: s && s.commute ? 1 : 0, min: s && s.commute ? 15 : 30, int: s && s.commute ? 1 : 2, t: S.date === todayStr() ? nowT() : '' };
     openSheet(sportSheet()); return 'noRender';
   },
   spmin(el) { S.sp.min = +el.dataset.v; $('#sbody').innerHTML = sportSheet(); return 'noRender'; },
@@ -572,7 +575,7 @@ const A = {
     const s = S.sp; s.name = (s.name || '').trim(); if (!s.name) { toast('Name fehlt'); return 'noRender'; }
     if (!(s.min > 0)) { toast('Dauer fehlt'); return 'noRender'; }
     if (s.id === '_new' && !DB.cfg.sports.some(x => x.name === s.name)) DB.cfg.sports.push({ id: uid(), name: s.name, e: s.e || '🏅' });
-    sec(S.date, 'sport').push({ id: uid(), t: s.t || '', name: s.name, e: s.e, min: s.min, int: s.int });
+    sec(S.date, 'sport').push(Object.assign({ id: uid(), t: s.t || '', name: s.name, e: s.e, min: s.min, int: s.int }, s.c ? { c: 1 } : {}));
     save(); closeSheet();
   },
   sclose() { if (TP.on) tpFinish(tpValue()); else closeSheet(); return 'noRender'; },

@@ -2,7 +2,7 @@
 :root{
   /* Palette „Bergnebel“: #F8DEBD #D1B091 #9C8E8D (hell) · #4E4C4F #22211F (Schrift, dunkel) */
   --bg:#1d1c1b;--bg2:#232120;--card:#272526;--card2:#343235;--ink:#f3e4cf;--mut:#a39695;--line:#383639;
-  --acc:#d1b091;--acc-t:#d1b091;--on-acc:#22211f;--pos:#a3b58b;--neg:#d39b78;--bad:#d18980;
+  --acc:#d1b091;--acc-t:#d1b091;--on-acc:#22211f;--pos:#a3b58b;--com:#8ea6bd;--neg:#d39b78;--bad:#d18980;
   --m1:#d08a82;--m2:#d9a872;--m3:#cdbb88;--m4:#a8b98a;--m5:#88b09b;
   --shadow:0 1px 2px rgba(0,0,0,.2),0 12px 30px rgba(0,0,0,.2);
   --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
@@ -10,7 +10,7 @@
   color-scheme:dark}
 [data-theme=light]{
   --bg:#fcefdb;--bg2:#f4dcbf;--card:#fffaf2;--card2:#f8dfbf;--ink:#34302f;--mut:#7e7172;--line:#ecd5b7;
-  --acc:#c19b76;--acc-t:#7a5c42;--on-acc:#2b2523;--pos:#7f9d6c;--neg:#c08256;--bad:#b9655c;
+  --acc:#c19b76;--acc-t:#7a5c42;--on-acc:#2b2523;--pos:#7f9d6c;--com:#6f8aa6;--neg:#c08256;--bad:#b9655c;
   --m1:#cd7f74;--m2:#d9a266;--m3:#c9b574;--m4:#9cb382;--m5:#7fae97;
   --shadow:0 1px 2px rgba(120,80,40,.06),0 12px 30px rgba(120,80,40,.1);
   color-scheme:light}
@@ -130,3 +130,6 @@ body.noscroll{overflow:hidden}
 .pw.masked input{color:transparent;caret-color:transparent;text-shadow:none;-webkit-text-fill-color:transparent}
 .pw.masked.has .pwdots{display:block}
 .pweye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:34px;border-radius:12px;background:transparent;border:0;font-size:18px;padding:0}
+
+.chip.pend{border-color:color-mix(in srgb,var(--com) 70%,transparent);background:color-mix(in srgb,var(--com) 12%,var(--card2))}
+.ent.pend{box-shadow:inset 3px 0 0 var(--com)}
