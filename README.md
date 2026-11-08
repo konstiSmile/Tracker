@@ -1,1 +1,29 @@
 # Tracker
+
+Persönlicher Tracker für Stimmung, Schlaf, Kaffee/Koffein, Sport und Gewohnheiten (positiv/negativ). Web-App (PWA), Daten nur lokal im Gerät (`localStorage`, Schlüssel `tracker-v1`). Keine Build-Schritte: `index.html`, `app.js`, `app.css`, `sw.js`.
+
+Live über GitHub Pages: `https://konstiSmile.github.io/Tracker/`
+
+## Datenformat (`tracker-v1`)
+```
+{ v:1,
+  cfg:{ theme, limit, coffee:[{id,name,mg,e}], sports:[{id,name,e}], habits:[{id,name,type:'pos'|'neg',e}] },
+  days:{ "JJJJ-MM-TT":{
+    mood:{ v:1-5, tags:[], qa:[{q,a}], note },
+    sleep:{ bed:"HH:MM", wake:"HH:MM", dur:min, q:1-5, fall, wakes, morning, score, deep, rem, light, awake, rhr, src, note },
+    coffee:[{id,t:"HH:MM",k,name,mg,e}],
+    sport:[{id,t,name,e,min,int:1-3}],
+    habits:{ habitId:1 },
+    note } } }
+```
+Schlaf gehört zum **Tag des Aufwachens**.
+
+## Import (z. B. Uhr-Screenshots, von Claude ausgewertet)
+Einstellungen → Daten, Backup und Import. Dort „Auftrag für Claude kopieren“, im Chat mit Screenshot einfügen, JSON zurück einfügen:
+```
+{"tracker":1,"days":{"2026-11-08":{"sleep":{"bed":"23:20","wake":"07:05","score":82,"deep":75,"rem":95,"light":230,"awake":25,"rhr":54,"src":"uhr"}}}}
+```
+„Zusammenführen“ ergänzt Felder je Tag, „Alles ersetzen“ ersetzt die gesamte Datenbasis (für Backups).
+
+## Änderungen
+In `sw.js` die Cache-Version (`tracker-vN`) und in `app.js` `VERSION` erhöhen. Der Service Worker lädt zuerst aus dem Netz, sonst aus dem Zwischenspeicher.
