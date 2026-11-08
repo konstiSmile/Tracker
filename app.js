@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.4';
+const VERSION = '1.5';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -25,7 +25,7 @@ const QS = ['Was hat dir heute gutgetan?', 'Was hat dich heute belastet?', 'Wof�
 const MCOL = i => `var(--m${i})`;
 
 const DEF_CFG = {
-  theme: 'dark', limit: 400, halfLife: 5, v: 2,
+  theme: 'light', limit: 400, halfLife: 5, v: 3,
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -72,7 +72,8 @@ function norm(r) {
   const c = JSON.parse(JSON.stringify(DEF_CFG)), sv = (r.cfg && r.cfg.v) || 1;
   r.cfg = Object.assign(c, r.cfg || {});
   if (sv < 2) DEF_CFG.coffee.forEach(d => { if (!r.cfg.coffee.some(x => x.id === d.id)) r.cfg.coffee.push(JSON.parse(JSON.stringify(d))); });
-  r.cfg.v = 2;
+  if (sv < 3 && r.cfg.theme === 'dark') r.cfg.theme = 'light';   // Version 1.5: helleres Design als neuer Standard
+  r.cfg.v = 3;
   return r;
 }
 let saveTimer = 0;
@@ -97,7 +98,7 @@ function applyTheme() {
   const t = DB.cfg.theme;
   const th = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t;
   document.documentElement.dataset.theme = th;
-  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'light' ? '#f3e5d1' : '#1d1c1b';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'light' ? '#fcefdb' : '#1d1c1b';
 }
 
 /* ---------- Auswertungs-Helfer ---------- */
@@ -247,7 +248,7 @@ function viewHeute() {
   const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">↺ ${l}<small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   return `
-  <div class="dhead"><button data-act="dprev">‹</button><div><b>${esc(label)}</b><small>${isToday ? 'Heute' : `<a href="#" data-act="dtoday" style="color:var(--acc)">Zu heute</a>`}</small></div><button data-act="dnext" ${isToday ? 'disabled' : ''}>›</button></div>
+  <div class="dhead"><button data-act="dprev">‹</button><div><b>${esc(label)}</b><small>${isToday ? 'Heute' : `<a href="#" data-act="dtoday" style="color:var(--acc-t)">Zu heute</a>`}</small></div><button data-act="dnext" ${isToday ? 'disabled' : ''}>›</button></div>
 
   <section class="card"><h3>Stimmung</h3>
     <div class="smileys">${MOOD_E.map((e, i) => `<button class="sm ${m.v === i + 1 ? 'on' : ''}" style="--c:${MCOL(i + 1)}" data-act="mood" data-v="${i + 1}" aria-label="${MOOD_N[i]}">${e}</button>`).join('')}</div>
@@ -255,7 +256,7 @@ function viewHeute() {
     ${moodOpen ? `
       <div class="lbl">Gefühle</div>
       <div class="chips">${TAGS.map(t => `<button class="chip ${(m.tags || []).includes(t) ? 'on' : ''}" data-act="tag" data-v="${t}">${t}</button>`).join('')}</div>
-      <div class="lbl row sb"><span>${esc(q)}</span><button data-act="qnext" style="color:var(--acc)">andere ↻</button></div>
+      <div class="lbl row sb"><span>${esc(q)}</span><button data-act="qnext" style="color:var(--acc-t)">andere ↻</button></div>
       <textarea data-f="mood.qa" data-q="${esc(q)}" placeholder="Kurz antworten …">${esc(qa.a || '')}</textarea>
       <div class="lbl">Freie Notiz</div>
       <textarea data-f="mood.note" placeholder="Was dir sonst noch durch den Kopf geht …">${esc(m.note || '')}</textarea>` : ''}
@@ -476,7 +477,7 @@ function viewSettings() {
   const list = (kind, items, f) => items.map(it => `<div class="setrow">${f(it)}<button class="x btn" data-act="cfgdel" data-kind="${kind}" data-id="${it.id}" style="padding:8px 12px">✕</button></div>`).join('');
   const inp = (kind, it, p, cls = '', type = 'text') => `<input class="${cls}" type="${type}" ${type === 'number' ? 'inputmode="numeric"' : ''} value="${esc(it[p] ?? '')}" data-cfg="${kind}" data-id="${it.id}" data-p="${p}">`;
   return `<h2>Einstellungen</h2>
-  <details class="card"><summary>Darstellung</summary>${chips([['dark', 'Dunkel'], ['light', 'Hell'], ['system', 'System']], c.theme, 'theme')}</details>
+  <details class="card"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
   <details class="card"><summary>Koffein</summary>
     <label class="mut">Tageslimit (mg)<br><input type="number" inputmode="numeric" data-cfgv="limit" value="${c.limit}"></label>
     <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 5}"></label>

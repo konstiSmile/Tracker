@@ -46,3 +46,6 @@ Farbschema „Bergnebel“ nach Vorlage des Nutzers: #F8DEBD (Pfirsichcreme), #D
 - Echte Update-Prüfung: lädt `app.js` ohne Cache und vergleicht `VERSION`. Beim Start und beim Zurückkehren in die App (höchstens alle 10 Min.) sowie über Einstellungen → App → „Nach Update suchen“. Bei neuer Version erscheint unten „Update … bereit · Neu laden“ (leert Zwischenspeicher und Service Worker, Daten in `localStorage` bleiben).
 - **Bei jedem Release drei Stellen erhöhen:** `VERSION` in `app.js`, `?v=` an `app.js` in `index.html`, `CACHE` in `sw.js`.
 - Achtung: Lernkiste und Tracker liegen unter demselben Ursprung (`konstismile.github.io`). „Website-Daten löschen“ in Safari löscht die Daten beider Apps.
+
+## Version 1.5
+Helleres Design (neuer Standard, `cfg.v = 3`; ein gespeicherter Dunkelmodus wird einmalig auf Hell umgestellt, in Einstellungen → Darstellung wieder wählbar). Orientierung an den oberen drei Farben #F8DEBD, #D1B091, #9C8E8D als Flächen; Schrift in den dunklen Tönen (#34302F, #4E4C4F, #22211F), Akzent-Text in dunklem Sand (`--acc-t`). Sanfter Verlauf im Hintergrund, helle Icons.
