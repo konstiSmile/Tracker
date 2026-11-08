@@ -63,4 +63,8 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Backup in Google Tabelle: Einstellungen → Daten, Backup und Import → „Backup in Google Tabelle“. Adresse der Apps-Script-Web-App und Passwort eintragen (Skript: `sheets-backup.gs`). Die App sendet ca. 20 s nach jeder Änderung das komplette Backup (Blätter „Rohdaten“ und „Tage“); offline wird nachgeholt. Adresse und Passwort liegen separat unter `tracker-sync` im localStorage.
 
 ### 1.10
+(Hinweis: ab 1.11 hat auch app.css eine ?v=-Nummer im Link; sonst bleibt eine alte Stilvorlage im Zwischenspeicher. Release-Checkliste: beide ?v= erhöhen.)
 - Passwortfeld (Tabellen-Backup) ist verschwommen und zeigt immer gleich viele Punkte; Auge-Knopf rechts macht es sichtbar/unsichtbar.
+
+### 1.11
+- Fix: app.css wird jetzt mit Versionsnummer geladen, damit neue Stile (Passwortfeld) sicher ankommen.
