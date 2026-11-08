@@ -34,3 +34,6 @@ In `sw.js` die Cache-Version (`tracker-vN`) und in `app.js` `VERSION` erhöhen. 
 - Restkoffein-Kurve (Halbwertszeit einstellbar, Standard 5 h) mit Wert jetzt und beim Zubettgehen.
 - Schlaf-Rhythmus (Balkenchart, Streuung, Wochenende vs. Woche), Wochenrückblick (KW, Vergleich zur Vorwoche, „Woche für Claude kopieren“), Muster nach Restkoffein beim Zubettgehen.
 - Config-Migration: `cfg.v = 2` ergänzt fehlende Standard-Getränke bei bestehenden Daten.
+
+## Version 1.2
+Weiches Design: gedämpfte Salbei-/Apricot-Töne, warmes Dunkel und Creme im Hellmodus, größere Rundungen, sanfte Schatten, Überschriften in Serifenschrift (`ui-serif`/New York), Fließtext in Rundschrift (`ui-rounded`/SF Rounded), Navigation mit Unschärfe. Neue Icons in den gleichen Farben.
