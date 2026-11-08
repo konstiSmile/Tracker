@@ -123,3 +123,10 @@ body.noscroll{overflow:hidden}
 #sheet{touch-action:pan-y}
 .sheet-body{overflow-x:hidden;overscroll-behavior:contain}
 .tp-i{white-space:nowrap;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:opacity .15s,color .15s,font-size .12s}
+
+.pw{position:relative;display:block}
+.pw input{padding-right:46px}
+.pw .pwdots{position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;display:none;filter:blur(5px);letter-spacing:2px;opacity:.75}
+.pw.masked input{color:transparent;caret-color:transparent;text-shadow:none;-webkit-text-fill-color:transparent}
+.pw.masked.has .pwdots{display:block}
+.pweye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:34px;border-radius:12px;background:transparent;border:0;font-size:18px;padding:0}

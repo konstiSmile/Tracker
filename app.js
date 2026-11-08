@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.9';
+const VERSION = '1.10';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -520,7 +520,7 @@ function viewSettings() {
     <div class="row"><button class="btn" data-act="copyexp">Backup kopieren</button><button class="btn" data-act="dlexp">Als Datei</button></div>
     <div class="lbl">Backup in Google Tabelle</div>
     <label class="mut">Web-App-Adresse<br><input type="url" data-sync="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(syncCfg().url || '')}"></label>
-    <label class="mut">Passwort<br><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" value="${esc(syncCfg().key || '')}"></label>
+    <div class="mut">Passwort<div class="pw masked${syncCfg().key ? ' has' : ''}"><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" value="${esc(syncCfg().key || '')}"><span class="pwdots" aria-hidden="true">••••••••••</span><button type="button" class="pweye" data-act="pweye" aria-label="Passwort anzeigen oder verbergen">👁</button></div></div>
     <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
     <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Danach sichert die App ca. 20 Sekunden nach jeder Änderung automatisch.</small>
     <div class="lbl">Gefahrenzone</div><button class="btn danger" data-act="wipe">Alle Daten löschen</button></details>
@@ -622,6 +622,7 @@ const A = {
   cfgdel(el) { const k = el.dataset.kind; DB.cfg[k] = DB.cfg[k].filter(x => x.id !== el.dataset.id); save(); keepOpen = k; },
   imp(el) { doImport(el.dataset.m); },
   copyprompt() { copy(CLAUDE_PROMPT, 'Auftrag kopiert'); return 'noRender'; },
+  pweye(el) { const w = el.closest('.pw'); w.classList.toggle('masked'); el.textContent = w.classList.contains('masked') ? '👁' : '🙈'; return 'noRender'; },
   syncnow() { syncNow(true); return 'noRender'; },
   copyexp() { copy(JSON.stringify(DB), 'Backup kopiert'); return 'noRender'; },
   dlexp() {
@@ -767,6 +768,7 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
   if (t.dataset.sp && S.sp) { S.sp[t.dataset.sp] = t.type === 'number' ? Number(t.value) : t.value; }
 });
