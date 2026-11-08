@@ -55,3 +55,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 1.7
 - Zeitrad: nur noch vertikale Bewegung (kein seitliches Verschieben mehr), ausgewählte Zahl wird per Schriftgröße statt Skalierung hervorgehoben.
+
+### 1.8
+- Koffein: Die Anzeige "Um 22 Uhr noch im Körper" und die Markierung in der Kurve beziehen sich jetzt fest auf 22 Uhr (vorher: Zubettgehzeit). Der Verlauf-Vergleich "Restkoffein beim Zubettgehen" bleibt bei der echten Bettzeit.

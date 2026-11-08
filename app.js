@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.7';
+const VERSION = '1.8';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -150,7 +150,7 @@ function plannedBed(d) {
 function caffeineBlock(d) {
   let peak = 0; for (let t = 360; t <= 1800; t += 30) peak = Math.max(peak, caffeineAt(d, t));
   if (peak < 1) return '';
-  const isT = d === todayStr(), nowM = tmin(nowT()), bd = plannedBed(d), atBed = caffeineAt(d, bd.m);
+  const isT = d === todayStr(), nowM = tmin(nowT()), bd = { m: 1320 }, atBed = caffeineAt(d, bd.m);
   const W = 340, H = 92, pl = 26, pr = 4, pt = 6, pbm = 14, mx = Math.max(60, peak * 1.15), x0 = 360, x1 = 1800;
   const X = t => pl + (t - x0) / (x1 - x0) * (W - pl - pr), Y = v => pt + (H - pt - pbm) * (1 - v / mx);
   let path = `M${X(x0)} ${Y(0)}`; for (let t = x0; t <= x1; t += 15) path += `L${X(t)} ${Y(caffeineAt(d, t))}`; path += `L${X(x1)} ${Y(0)}Z`;
@@ -159,10 +159,10 @@ function caffeineBlock(d) {
   g += `<path d="${path}" fill="var(--acc)" fill-opacity=".3" stroke="var(--acc)" stroke-width="1.4"/>`;
   [[360, '6'], [720, '12'], [1080, '18'], [1440, '0'], [1800, '6']].forEach(([t, l]) => g += `<text x="${X(t)}" y="${H - 2}" text-anchor="middle">${l}</text>`);
   if (isT && nowM >= x0) g += `<line x1="${X(nowM)}" x2="${X(nowM)}" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-dasharray="3 3"/>`;
-  if (bd.m <= x1) g += `<line x1="${X(bd.m)}" x2="${X(bd.m)}" y1="${pt}" y2="${Y(0)}" stroke="var(--neg)" stroke-width="1.5"/><text x="${X(bd.m)}" y="${pt + 8}" text-anchor="middle" style="font-size:10px">🌙</text>`;
+  if (bd.m <= x1) g += `<line x1="${X(bd.m)}" x2="${X(bd.m)}" y1="${pt}" y2="${Y(0)}" stroke="var(--neg)" stroke-width="1.5"/><text x="${X(bd.m)}" y="${pt + 8}" text-anchor="middle" style="font-size:10px">22</text>`;
   g += '</svg>';
   return `<div class="sub"><div class="kv"><span>${isT ? 'Jetzt noch im Körper' : 'Höchststand am Tag'}</span><b>≈ ${Math.round(isT ? caffeineAt(d, nowM) : peak)} mg</b></div>
-    <div class="kv"><span>Beim Zubettgehen (${clockM(bd.m)}${bd.planned ? ', geschätzt' : ''})</span><b>≈ ${Math.round(atBed)} mg</b></div>${g}
+    <div class="kv"><span>Um 22 Uhr noch im Körper</span><b>≈ ${Math.round(atBed)} mg</b></div>${g}
     <small>Vereinfachtes Modell mit ${DB.cfg.halfLife || 5} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
 }
 function rankItems(items, kind, d) {
