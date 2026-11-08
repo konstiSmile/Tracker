@@ -37,3 +37,6 @@ In `sw.js` die Cache-Version (`tracker-vN`) und in `app.js` `VERSION` erhöhen. 
 
 ## Version 1.2
 Weiches Design: gedämpfte Salbei-/Apricot-Töne, warmes Dunkel und Creme im Hellmodus, größere Rundungen, sanfte Schatten, Überschriften in Serifenschrift (`ui-serif`/New York), Fließtext in Rundschrift (`ui-rounded`/SF Rounded), Navigation mit Unschärfe. Neue Icons in den gleichen Farben.
+
+## Version 1.3
+Farbschema „Bergnebel“ nach Vorlage des Nutzers: #F8DEBD (Pfirsichcreme), #D1B091 (Sand), #9C8E8D (Mauvegrau), #4E4C4F (Anthrazit), #22211F (fast Schwarz). Dunkel: warmes Schwarz mit Sand als Akzent; Hell: Creme mit dunklem Sandbraun. Stimmungsfarben abgestimmt (Rosenstaub bis Moos-/Salbeigrün). Icons in den neuen Farben.

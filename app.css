@@ -1,17 +1,18 @@
 /* Tracker – weiches, ruhiges Design */
 :root{
-  --bg:#1a1d21;--card:#22262b;--card2:#2b3036;--ink:#e9e5dd;--mut:#a29e95;--line:#30353b;
-  --acc:#93c5b3;--on-acc:#14231e;--pos:#8dc3a3;--neg:#e0a87a;--bad:#dc8b82;
-  --m1:#dd8f86;--m2:#e0b07a;--m3:#d4cb8c;--m4:#a6cf9a;--m5:#86c5ab;
-  --shadow:0 1px 2px rgba(0,0,0,.14),0 12px 30px rgba(0,0,0,.16);
+  /* Palette „Bergnebel“: #F8DEBD #D1B091 #9C8E8D #4E4C4F #22211F */
+  --bg:#1d1c1b;--card:#272526;--card2:#343235;--ink:#f3e4cf;--mut:#a39695;--line:#383639;
+  --acc:#d1b091;--on-acc:#22211f;--pos:#a3b58b;--neg:#d39b78;--bad:#d18980;
+  --m1:#d08a82;--m2:#d9a872;--m3:#cdbb88;--m4:#a8b98a;--m5:#88b09b;
+  --shadow:0 1px 2px rgba(0,0,0,.2),0 12px 30px rgba(0,0,0,.2);
   --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
   --round:ui-rounded,"SF Pro Rounded","Nunito","Quicksand",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:dark}
 [data-theme=light]{
-  --bg:#f3efe7;--card:#fbf8f2;--card2:#eee8dc;--ink:#3a3631;--mut:#857f74;--line:#e6dfd2;
-  --acc:#5e9c8b;--on-acc:#ffffff;--pos:#5aa282;--neg:#c98d55;--bad:#c76b61;
-  --m1:#d4786d;--m2:#d9a05f;--m3:#c4b765;--m4:#8fbf80;--m5:#62ae94;
-  --shadow:0 1px 2px rgba(80,60,30,.06),0 12px 30px rgba(80,60,30,.09);
+  --bg:#f3e5d1;--card:#fbf3e7;--card2:#ecdcc6;--ink:#3a3537;--mut:#7d7173;--line:#e3d2bb;
+  --acc:#97714f;--on-acc:#ffffff;--pos:#7a9467;--neg:#b9784e;--bad:#b4635b;
+  --m1:#c9766d;--m2:#d19c5d;--m3:#bfae70;--m4:#93ac78;--m5:#74a28b;
+  --shadow:0 1px 2px rgba(90,60,30,.07),0 12px 30px rgba(90,60,30,.1);
   color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--round);-webkit-text-size-adjust:100%}

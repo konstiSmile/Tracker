@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.2';
+const VERSION = '1.3';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -97,7 +97,7 @@ function applyTheme() {
   const t = DB.cfg.theme;
   const th = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t;
   document.documentElement.dataset.theme = th;
-  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'light' ? '#f3efe7' : '#1a1d21';
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = th === 'light' ? '#f3e5d1' : '#1d1c1b';
 }
 
 /* ---------- Auswertungs-Helfer ---------- */
