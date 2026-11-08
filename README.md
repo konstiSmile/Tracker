@@ -52,3 +52,6 @@ Helleres Design (neuer Standard, `cfg.v = 3`; ein gespeicherter Dunkelmodus wird
 
 ## Version 1.6
 Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minuten-Schritten. Schließt nicht beim Drehen, nur mit dem Haken (✓) oder Tippen neben das Fenster (übernimmt den gewählten Wert); „Jetzt“ und „Leeren“ (bei Kaffee-Uhrzeit ohne „Leeren“). Wird das Rad nicht angefasst, bleibt eine vorhandene krumme Uhrzeit (z. B. 12:34) unverändert. Gilt für Schlaf (Bett, Aufgewacht), Kaffee-Uhrzeit und Sport-Uhrzeit.
+
+### 1.7
+- Zeitrad: nur noch vertikale Bewegung (kein seitliches Verschieben mehr), ausgewählte Zahl wird per Schriftgröße statt Skalierung hervorgehoben.

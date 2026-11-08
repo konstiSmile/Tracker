@@ -114,8 +114,12 @@ body.noscroll{overflow:hidden}
 .tp-ok{width:46px;height:46px;border-radius:50%;background:var(--acc);color:var(--on-acc);font-size:1.3rem;font-weight:700}
 .tp-wheel{position:relative;display:flex;justify-content:center;align-items:center;gap:6px;margin:6px 0 14px}
 .tp-band{position:absolute;left:18%;right:18%;top:80px;height:40px;border-radius:14px;background:color-mix(in srgb,var(--acc) 24%,transparent);pointer-events:none}
-.tp-col{position:relative;height:200px;width:90px;overflow-y:auto;scroll-snap-type:y mandatory;padding:80px 0;scrollbar-width:none;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent);mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent)}
+.tp-col{position:relative;height:200px;width:90px;overflow-y:auto;scroll-snap-type:y mandatory;padding:80px 0;scrollbar-width:none;overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent);mask-image:linear-gradient(transparent,#000 28%,#000 72%,transparent)}
 .tp-col::-webkit-scrollbar{display:none}
 .tp-i{height:40px;line-height:40px;text-align:center;font:600 1.45rem var(--serif);scroll-snap-align:center;color:var(--mut);opacity:.6;cursor:pointer;transition:transform .15s,opacity .15s,color .15s}
-.tp-i.sel{color:var(--ink);opacity:1;transform:scale(1.15)}
+.tp-i.sel{color:var(--ink);opacity:1;font-size:1.7rem}
 .tp-sep{font:600 1.5rem var(--serif);color:var(--mut)}
+.tp-wheel{overflow:hidden;touch-action:pan-y}
+#sheet{touch-action:pan-y}
+.sheet-body{overflow-x:hidden;overscroll-behavior:contain}
+.tp-i{white-space:nowrap;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:opacity .15s,color .15s,font-size .12s}
