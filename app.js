@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.0';
+const VERSION = '1.1';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -25,8 +25,12 @@ const QS = ['Was hat dir heute gutgetan?', 'Was hat dich heute belastet?', 'Wof�
 const MCOL = i => `var(--m${i})`;
 
 const DEF_CFG = {
-  theme: 'dark', limit: 400,
+  theme: 'dark', limit: 400, halfLife: 5, v: 2,
   coffee: [
+    { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
+    { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
+    { id: 'cb_forte', name: 'CoffeeB Lungo Forte', mg: 70, e: '☕', est: true },
+    { id: 'cb_decaf', name: 'CoffeeB Decaffeinato', mg: 3, e: '🫘', est: true },
     { id: 'espresso', name: 'Espresso', mg: 63, e: '☕' },
     { id: 'doppio', name: 'Doppelter Espresso', mg: 126, e: '☕' },
     { id: 'filter', name: 'Filterkaffee (Tasse)', mg: 95, e: '🫖' },
@@ -65,8 +69,10 @@ function load() {
 }
 function norm(r) {
   r.v = 1; r.days = r.days || {};
-  const c = JSON.parse(JSON.stringify(DEF_CFG));
+  const c = JSON.parse(JSON.stringify(DEF_CFG)), sv = (r.cfg && r.cfg.v) || 1;
   r.cfg = Object.assign(c, r.cfg || {});
+  if (sv < 2) DEF_CFG.coffee.forEach(d => { if (!r.cfg.coffee.some(x => x.id === d.id)) r.cfg.coffee.push(JSON.parse(JSON.stringify(d))); });
+  r.cfg.v = 2;
   return r;
 }
 let saveTimer = 0;
@@ -81,7 +87,7 @@ const day = (d, create) => DB.days[d] || (create ? (DB.days[d] = {}) : {});
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
 
 /* ---------- Zustand ---------- */
-const S = { tab: 'heute', date: todayStr(), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
+const S = { tab: 'heute', date: todayStr(), week: weekStart(todayStr()), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -113,6 +119,99 @@ function streak(h, d) {
   return n;
 }
 
+/* ---------- Koffein-Modell, Ranking, Schlaf-Rhythmus ---------- */
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const dn = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) / 864e5; };
+const clockM = m => { m = Math.round(((m % 1440) + 1440) % 1440); return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+const bedU = m => (m - 1080 + 1440) % 1440;                 // Minuten nach 18:00
+const clockFromU = u => clockM(u + 1080);
+const sdev = a => { if (a.length < 2) return null; const m = avg(a); return Math.sqrt(avg(a.map(x => (x - m) ** 2))); };
+function weekStart(d) { return addDays(d, -((parse(d).getDay() + 6) % 7)); }
+function isoWeek(s) { const d = parse(s); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); }
+
+function caffeineAt(d, minute) {
+  const hl = (DB.cfg.halfLife || 5) * 60, at = dn(d) * 1440 + minute; let sum = 0;
+  for (let k = -2; k <= 1; k++) {
+    const x = addDays(d, k);
+    (day(x).coffee || []).forEach(c => { const t0 = dn(x) * 1440 + tmin(c.t); if (at >= t0) sum += (c.mg || 0) * Math.pow(.5, (at - t0) / hl); });
+  }
+  return sum;
+}
+function avgBedClock() {
+  const us = []; Object.keys(DB.days).sort().slice(-14).forEach(k => { const s = DB.days[k].sleep; if (s && s.bed) us.push(bedU(tmin(s.bed))); });
+  return us.length ? (avg(us) + 1080) % 1440 : 1380;
+}
+function plannedBed(d) {
+  const s = day(addDays(d, 1)).sleep;
+  if (s && s.bed) { const m = tmin(s.bed); return { m: m >= 900 ? m : m + 1440, planned: false }; }
+  const pm = avgBedClock(); return { m: pm < 720 ? pm + 1440 : pm, planned: true };
+}
+function caffeineBlock(d) {
+  let peak = 0; for (let t = 360; t <= 1800; t += 30) peak = Math.max(peak, caffeineAt(d, t));
+  if (peak < 1) return '';
+  const isT = d === todayStr(), nowM = tmin(nowT()), bd = plannedBed(d), atBed = caffeineAt(d, bd.m);
+  const W = 340, H = 92, pl = 26, pr = 4, pt = 6, pbm = 14, mx = Math.max(60, peak * 1.15), x0 = 360, x1 = 1800;
+  const X = t => pl + (t - x0) / (x1 - x0) * (W - pl - pr), Y = v => pt + (H - pt - pbm) * (1 - v / mx);
+  let path = `M${X(x0)} ${Y(0)}`; for (let t = x0; t <= x1; t += 15) path += `L${X(t)} ${Y(caffeineAt(d, t))}`; path += `L${X(x1)} ${Y(0)}Z`;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="margin-top:8px">`;
+  [0, mx / 2].forEach(v => g += `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${pl - 3}" y="${Y(v) + 3}" text-anchor="end">${Math.round(v)}</text>`);
+  g += `<path d="${path}" fill="var(--acc)" fill-opacity=".3" stroke="var(--acc)" stroke-width="1.4"/>`;
+  [[360, '6'], [720, '12'], [1080, '18'], [1440, '0'], [1800, '6']].forEach(([t, l]) => g += `<text x="${X(t)}" y="${H - 2}" text-anchor="middle">${l}</text>`);
+  if (isT && nowM >= x0) g += `<line x1="${X(nowM)}" x2="${X(nowM)}" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-dasharray="3 3"/>`;
+  if (bd.m <= x1) g += `<line x1="${X(bd.m)}" x2="${X(bd.m)}" y1="${pt}" y2="${Y(0)}" stroke="var(--neg)" stroke-width="1.5"/><text x="${X(bd.m)}" y="${pt + 8}" text-anchor="middle" style="font-size:10px">🌙</text>`;
+  g += '</svg>';
+  return `<div class="sub"><div class="kv"><span>${isT ? 'Jetzt noch im Körper' : 'Höchststand am Tag'}</span><b>≈ ${Math.round(isT ? caffeineAt(d, nowM) : peak)} mg</b></div>
+    <div class="kv"><span>Beim Zubettgehen (${clockM(bd.m)}${bd.planned ? ', geschätzt' : ''})</span><b>≈ ${Math.round(atBed)} mg</b></div>${g}
+    <small>Vereinfachtes Modell mit ${DB.cfg.halfLife || 5} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
+}
+function rankItems(items, kind, d) {
+  const today = todayStr(), wd = parse(d).getDay(), bucket = t => { const h = tmin(t) / 60; return h < 11 ? 0 : h < 15 ? 1 : h < 19 ? 2 : 3; };
+  const nowB = d === today ? bucket(nowT()) : null, sc = {};
+  Object.keys(DB.days).forEach(k => {
+    if (k === d) return;
+    const age = dn(today) - dn(k); if (age > 120 || age < 0) return;
+    const rec = .5 + .5 * Math.max(0, 1 - age / 120), swd = parse(k).getDay() === wd ? 2.5 : 1;
+    (DB.days[k][kind] || []).forEach(e => {
+      const key = kind === 'coffee' ? e.k : e.name; if (!key) return;
+      const tb = nowB != null && e.t ? (bucket(e.t) === nowB ? 2 : 1) : 1;
+      sc[key] = (sc[key] || 0) + rec * swd * tb;
+    });
+  });
+  const id = it => kind === 'coffee' ? it.id : it.name;
+  const sorted = items.map((it, i) => ({ it, s: sc[id(it)] || 0, i })).sort((a, b) => b.s - a.s || a.i - b.i);
+  const top = sorted.filter(x => x.s > 0).slice(0, 4).map(x => x.it), ids = new Set(top.map(id));
+  return { top, rest: items.filter(it => !ids.has(id(it))) };
+}
+function sleepStats(dates) {
+  const rows = dates.map(d => ({ d, s: day(d).sleep })).filter(x => x.s && x.s.bed && x.s.wake);
+  if (rows.length < 3) return null;
+  const bu = rows.map(r => bedU(tmin(r.s.bed))), wk = rows.map(r => tmin(r.s.wake)), du = rows.map(r => sleepDur(r.s));
+  const mid = r => bedU(tmin(r.s.bed)) + sleepDur(r.s) / 2, free = x => [0, 6].includes(parse(x.d).getDay());
+  const fr = rows.filter(free).map(mid), wo = rows.filter(r => !free(r)).map(mid);
+  return { n: rows.length, bedAvg: avg(bu), bedSD: sdev(bu), wakeAvg: avg(wk), wakeSD: sdev(wk), durAvg: avg(du), durSD: sdev(du), jet: fr.length >= 2 && wo.length >= 2 ? avg(fr) - avg(wo) : null, rows };
+}
+const regLabel = v => v < 30 ? 'sehr regelmäßig' : v < 45 ? 'ziemlich regelmäßig' : v < 75 ? 'schwankend' : 'unregelmäßig';
+function bandChart(rows, dates) {
+  const W = 340, H = 150, pl = 30, pr = 4, pt = 6, pbm = 14, n = dates.length;
+  const by = r => { const m = tmin(r.s.bed); return m >= 720 ? m : m + 1440; }, wy = r => 1440 + tmin(r.s.wake);
+  const lo = Math.floor((Math.min(...rows.map(by)) - 30) / 60) * 60, hi = Math.ceil((Math.max(...rows.map(wy)) + 30) / 60) * 60;
+  const y = v => pt + (v - lo) / (hi - lo) * (H - pt - pbm), bw = (W - pl - pr) / n;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for (let v = Math.ceil(lo / 120) * 120; v <= hi; v += 120) g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl - 3}" y="${y(v) + 3}" text-anchor="end">${clockM(v)}</text>`;
+  rows.forEach(r => { const i = dates.indexOf(r.d); g += `<rect x="${pl + i * bw + Math.min(1.5, bw * .1)}" width="${Math.max(1.5, bw - Math.min(3, bw * .2))}" y="${y(by(r))}" height="${Math.max(1, y(wy(r)) - y(by(r)))}" rx="2" fill="var(--acc)" opacity=".85"/>`; });
+  return g + xLabels(dates, W, pl, pr, H) + '</svg>';
+}
+function rhythmBody(ss, dates) {
+  const lab = regLabel(Math.max(ss.bedSD ?? 0, ss.wakeSD ?? 0)), pm = x => x == null ? '' : ` <small>± ${Math.round(x)} min</small>`;
+  return bandChart(ss.rows, dates) + `
+    <div class="kv"><span>Ins Bett</span><span>Ø ${clockFromU(ss.bedAvg)}${pm(ss.bedSD)}</span></div>
+    <div class="kv"><span>Aufgewacht</span><span>Ø ${clockM(ss.wakeAvg)}${pm(ss.wakeSD)}</span></div>
+    <div class="kv"><span>Schlafdauer</span><span>Ø ${fmtDur(ss.durAvg)}${pm(ss.durSD)}</span></div>
+    <div class="kv"><span>Rhythmus</span><b>${lab}</b></div>
+    ${ss.jet != null ? `<div class="kv"><span>Schlafmitte am Wochenende</span><span>${Math.abs(ss.jet) < 5 ? 'gleich' : Math.round(Math.abs(ss.jet)) + ' min ' + (ss.jet > 0 ? 'später' : 'früher')}</span></div>` : ''}
+    <small>Balken: von Einschlafen bis Aufwachen. ± ist die typische Abweichung, je kleiner desto regelmäßiger.</small>`;
+}
+
 /* ---------- Rendering ---------- */
 function render() {
   applyTheme();
@@ -140,6 +239,13 @@ function viewHeute() {
   const sp = D.sport || [];
   const habs = h => `<button class="hab ${h.type} ${(D.habits || {})[h.id] ? 'on' : ''}" data-act="hab" data-id="${h.id}"><span class="e">${h.e || '•'}</span><span>${esc(h.name)}<small>${streakTxt(h, d)}</small></span></button>`;
   const pos = DB.cfg.habits.filter(h => h.type === 'pos'), neg = DB.cfg.habits.filter(h => h.type === 'neg');
+  const cr = rankItems(DB.cfg.coffee, 'coffee', d), sr = rankItems(DB.cfg.sports, 'sport', d);
+  const when = isToday ? 'Oft um diese Zeit' : 'Oft an diesem Wochentag';
+  const cChip = (c, fav) => `<button class="chip ${fav ? 'fav' : ''}" data-act="cadd" data-id="${c.id}">${c.e || '☕'} ${esc(c.name)}<small>${c.est ? '≈' : ''}${c.mg}</small></button>`;
+  const sChip = (x, fav) => `<button class="chip ${fav ? 'fav' : ''}" data-act="sportopen" data-id="${x.id}">${x.e || '🏅'} ${esc(x.name)}</button>`;
+  const newChip = `<button class="chip" data-act="sportopen" data-id="_new">＋ Neu</button>`;
+  const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
+  const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">↺ ${l}<small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   return `
   <div class="dhead"><button data-act="dprev">‹</button><div><b>${esc(label)}</b><small>${isToday ? 'Heute' : `<a href="#" data-act="dtoday" style="color:var(--acc)">Zu heute</a>`}</small></div><button data-act="dnext" ${isToday ? 'disabled' : ''}>›</button></div>
 
@@ -175,13 +281,20 @@ function viewHeute() {
   <section class="card"><h3>Koffein <span style="text-transform:none;letter-spacing:0">${mg} / ${lim} mg</span></h3>
     <div class="bar ${mg > lim ? 'warn' : ''}"><i style="width:${Math.min(100, mg / lim * 100)}%"></i></div>
     <small>${lastC ? 'Letzter Eintrag ' + lastC + ' Uhr' : 'Noch nichts eingetragen'}${mg > lim ? ' · über deinem Limit' : ''}</small>
-    <div class="chips sub">${DB.cfg.coffee.map(c => `<button class="chip" data-act="cadd" data-id="${c.id}">${c.e || '☕'} ${esc(c.name)}<small>${c.mg}</small></button>`).join('')}</div>
-    ${cof.map(c => `<div class="ent"><input class="t" type="time" data-f="coffeet" data-id="${c.id}" value="${c.t}"><span class="grow">${esc(c.name)} <small>${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}">✕</button></div>`).join('')}
+    ${cr.top.length ? `<div class="lbl">${when}</div><div class="chips">${cr.top.map(c => cChip(c, 1)).join('')}</div>` : ''}
+    ${copyBtns('coffee')}
+    ${cr.top.length && cr.rest.length ? `<button class="more" data-act="tog" data-k="cmore">${S.open.cmore ? 'Weniger Getränke' : `Weitere Getränke (${cr.rest.length})`}</button>` : ''}
+    ${(!cr.top.length || S.open.cmore) ? `<div class="chips sub">${cr.rest.map(c => cChip(c)).join('')}</div>` : ''}
+    ${cof.map(c => `<div class="ent"><input class="t" type="time" data-f="coffeet" data-id="${c.id}" value="${c.t}"><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}">✕</button></div>`).join('')}
+    ${caffeineBlock(d)}
   </section>
 
   <section class="card"><h3>Sport <span style="text-transform:none;letter-spacing:0">${sportMin(d) ? sportMin(d) + ' min' : ''}</span></h3>
-    <div class="chips">${DB.cfg.sports.map(s => `<button class="chip" data-act="sportopen" data-id="${s.id}">${s.e || '🏅'} ${esc(s.name)}</button>`).join('')}<button class="chip" data-act="sportopen" data-id="_new">＋ Neu</button></div>
-    ${sp.map(s => `<div class="ent"><span class="t">${s.t || ''}</span><span class="grow">${s.e || ''} ${esc(s.name)} <small>${s.min} min${s.int ? ' · ' + ['leicht', 'mittel', 'hart'][s.int - 1] : ''}</small></span><button class="x" data-act="sdel" data-id="${s.id}">✕</button></div>`).join('')}
+    ${sr.top.length ? `<div class="lbl" style="margin-top:0">${when}</div><div class="chips">${sr.top.map(x => sChip(x, 1)).join('')}${newChip}</div>` : ''}
+    ${copyBtns('sport')}
+    ${sr.top.length && sr.rest.length ? `<button class="more" data-act="tog" data-k="smore">${S.open.smore ? 'Weniger Sportarten' : `Weitere Sportarten (${sr.rest.length})`}</button>` : ''}
+    ${(!sr.top.length || S.open.smore) ? `<div class="chips sub">${sr.rest.map(x => sChip(x)).join('')}${sr.top.length ? '' : newChip}</div>` : ''}
+    ${sp.map(x => `<div class="ent"><span class="t">${x.t || ''}</span><span class="grow">${x.e || ''} ${esc(x.name)} <small>${x.min} min${x.int ? ' · ' + ['leicht', 'mittel', 'hart'][x.int - 1] : ''}</small></span><button class="x" data-act="sdel" data-id="${x.id}">✕</button></div>`).join('')}
   </section>
 
   <section class="card"><h3>Gewohnheiten</h3>
@@ -233,14 +346,14 @@ function lineChart(dates, vals) {
 
 /* ---------- Verlauf ---------- */
 function viewVerlauf() {
-  const seg = `<div class="seg">${[['ueb', 'Übersicht'], ['sport', 'Sport'], ['muster', 'Muster']].map(([k, l]) => `<button class="${S.vtab === k ? 'on' : ''}" data-act="vtab" data-v="${k}">${l}</button>`).join('')}</div>`;
-  return `<h2>Verlauf</h2>${seg}${S.vtab === 'ueb' ? vUeb() : S.vtab === 'sport' ? vSport() : vMuster()}`;
+  const seg = `<div class="seg">${[['ueb', 'Übersicht'], ['woche', 'Woche'], ['sport', 'Sport'], ['muster', 'Muster']].map(([k, l]) => `<button class="${S.vtab === k ? 'on' : ''}" data-act="vtab" data-v="${k}">${l}</button>`).join('')}</div>`;
+  return `<h2>Verlauf</h2>${seg}${S.vtab === 'ueb' ? vUeb() : S.vtab === 'woche' ? vWoche() : S.vtab === 'sport' ? vSport() : vMuster()}`;
 }
 function vUeb() {
   const n = S.range, end = todayStr(), dates = []; for (let i = n - 1; i >= 0; i--) dates.push(addDays(end, -i));
   const mood = dates.map(d => day(d).mood?.v ?? null), sl = dates.map(d => { const x = sleepDur(day(d).sleep); return x == null ? null : x / 60; });
   const cof = dates.map(d => coffeeMg(d) || null), spt = dates.map(d => sportMin(d) || null);
-  const nz = a => a.filter(v => v != null);
+  const nz = a => a.filter(v => v != null), ss = sleepStats(dates);
   const rng = `<div class="seg">${[7, 30, 90].map(r => `<button class="${S.range === r ? 'on' : ''}" data-act="range" data-v="${r}">${r} Tage</button>`).join('')}</div>`;
   const hab = DB.cfg.habits.map(h => {
     const tracked = dates.filter(d => Object.keys(day(d)).length); const c = tracked.filter(d => (day(d).habits || {})[h.id]).length;
@@ -250,9 +363,42 @@ function vUeb() {
   return rng + `
   <section class="card"><h3>Stimmung <span style="text-transform:none">Ø ${f1(avg(nz(mood)))}</span></h3>${lineChart(dates, mood)}</section>
   <section class="card"><h3>Schlaf (Stunden) <span style="text-transform:none">Ø ${f1(avg(nz(sl)))} h</span></h3>${barChart(dates, sl, { max: 10, band: [7, 9], fmt: v => Math.round(v) })}<small>Grüner Bereich: 7–9 h</small></section>
+  <section class="card"><h3>Schlaf-Rhythmus</h3>${ss ? rhythmBody(ss, dates) : '<small>Trag Bett- und Aufwachzeit ein (oder importiere Uhr-Daten). Ab 3 Nächten siehst du hier deinen Rhythmus.</small>'}</section>
   <section class="card"><h3>Koffein (mg) <span style="text-transform:none">Ø ${Math.round(avg(nz(cof)) || 0)} mg</span></h3>${barChart(dates, cof, { limit: DB.cfg.limit, colorFn: v => v > DB.cfg.limit ? 'var(--bad)' : 'var(--acc)' })}</section>
   <section class="card"><h3>Sport (Minuten) <span style="text-transform:none">${nz(spt).length} Tage · ${nz(spt).reduce((a, b) => a + b, 0)} min</span></h3>${barChart(dates, spt, { colorFn: () => 'var(--pos)' })}</section>
   <section class="card"><h3>Gewohnheiten</h3>${hab || '<small>Noch keine angelegt.</small>'}</section>`;
+}
+function wstats(dates) {
+  const tr = dates.filter(d => Object.keys(day(d)).length), M = dates.map(d => day(d).mood?.v ?? null), moods = M.filter(Boolean);
+  const dur = dates.map(d => sleepDur(day(d).sleep)).filter(x => x != null), cof = tr.map(coffeeMg), sp = dates.map(sportMin);
+  const lasts = dates.map(d => (day(d).coffee || []).map(c => tmin(c.t)).sort((a, b) => b - a)[0]).filter(x => x != null);
+  return { tr: tr.length, M, moodAvg: avg(moods), durAvg: avg(dur), cofAvg: cof.length ? avg(cof) : null, over: cof.filter(v => v > DB.cfg.limit).length, lastAvg: avg(lasts),
+    sportN: dates.reduce((n, d) => n + (day(d).sport || []).length, 0), sportMin: sp.reduce((a, b) => a + b, 0), sportDays: sp.filter(x => x > 0).length, ss: sleepStats(dates) };
+}
+function vWoche() {
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(S.week, i)), prevD = dates.map(d => addDays(d, -7)), today = todayStr();
+  const a = wstats(dates), b = wstats(prevD), curW = weekStart(today), fmt = x => parse(x).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+  const dl = (x, y, unit = '', fx = f1) => x == null || y == null ? '' : ` <small>(${Math.abs(x - y) < .05 ? '±0' : (x > y ? '+' : '−') + fx(Math.abs(x - y))}${unit} zur Vorwoche)</small>`;
+  const sleepH = d => { const x = sleepDur(day(d).sleep); return x == null ? '–' : f1(x / 60); };
+  const mi = a.M.map((v, i) => v ? [v, i] : null).filter(Boolean), best = mi.length >= 3 ? mi.reduce((p, q) => q[0] > p[0] ? q : p) : null, worst = mi.length >= 3 ? mi.reduce((p, q) => q[0] < p[0] ? q : p) : null;
+  const hab = DB.cfg.habits.map(h => { const c = dates.filter(d => (day(d).habits || {})[h.id]).length; return `<div class="kv"><span>${h.e || ''} ${esc(h.name)}</span><span>${c} / 7 Tage</span></div><div class="bar" style="margin:2px 0 8px"><i style="width:${c / 7 * 100}%;background:${h.type === 'pos' ? 'var(--pos)' : 'var(--neg)'}"></i></div>`; }).join('');
+  const nxt = S.week >= curW;
+  return `<div class="dhead"><button data-act="wprev">‹</button><div><b>KW ${isoWeek(S.week)}</b><small>${fmt(dates[0])} – ${fmt(dates[6])}${S.week === curW ? ' · diese Woche' : ''}</small></div><button data-act="wnext" ${nxt ? 'disabled' : ''}>›</button></div>
+  <section class="card"><table class="wkt"><tr><th></th>${dates.map(d => `<th class="${d === today ? 'today' : ''}">${WD[parse(d).getDay()]}<br><small>${parse(d).getDate()}.</small></th>`).join('')}</tr>
+    <tr><td>Stimmung</td>${dates.map(d => `<td>${day(d).mood?.v ? MOOD_E[day(d).mood.v - 1] : '·'}</td>`).join('')}</tr>
+    <tr><td>Schlaf h</td>${dates.map(d => `<td>${sleepH(d)}</td>`).join('')}</tr>
+    <tr><td>Koffein mg</td>${dates.map(d => `<td>${coffeeMg(d) || '–'}</td>`).join('')}</tr>
+    <tr><td>Sport min</td>${dates.map(d => `<td>${sportMin(d) || '–'}</td>`).join('')}</tr></table>
+    <small>${a.tr} von 7 Tagen mit Einträgen</small></section>
+  <section class="card"><h3>Stimmung</h3>${a.moodAvg == null ? '<small>Keine Stimmung eingetragen.</small>' : `<div class="big">Ø ${f1(a.moodAvg)} ${MOOD_E[Math.round(a.moodAvg) - 1]}</div>${dl(a.moodAvg, b.moodAvg)}
+    ${best ? `<div class="kv"><span>Bester Tag</span><span>${WD[parse(dates[best[1]]).getDay()]} ${MOOD_E[best[0] - 1]}</span></div><div class="kv"><span>Schwächster Tag</span><span>${WD[parse(dates[worst[1]]).getDay()]} ${MOOD_E[worst[0] - 1]}</span></div>` : ''}`}</section>
+  <section class="card"><h3>Schlaf</h3>${a.durAvg == null ? '<small>Kein Schlaf eingetragen.</small>' : `<div class="big">Ø ${fmtDur(a.durAvg)}</div>${dl(a.durAvg, b.durAvg, ' min', v => Math.round(v))}`}
+    ${a.ss ? `<div class="sub">${rhythmBody(a.ss, dates)}</div>` : '<small>Für den Rhythmus braucht es Bett- und Aufwachzeit an mindestens 3 Nächten.</small>'}</section>
+  <section class="card"><h3>Koffein</h3>${a.cofAvg == null ? '<small>Nichts eingetragen.</small>' : `<div class="big">Ø ${Math.round(a.cofAvg)} mg / Tag</div>${dl(a.cofAvg, b.cofAvg, ' mg', v => Math.round(v))}
+    <div class="kv"><span>Tage über dem Limit (${DB.cfg.limit} mg)</span><span>${a.over}</span></div>${a.lastAvg != null ? `<div class="kv"><span>Letzter Kaffee im Schnitt</span><span>${clockM(a.lastAvg)} Uhr</span></div>` : ''}`}</section>
+  <section class="card"><h3>Sport</h3>${a.sportN ? `<div class="big">${a.sportN} ${a.sportN === 1 ? 'Einheit' : 'Einheiten'} · ${a.sportMin} min</div>${dl(a.sportMin, b.sportMin, ' min', v => Math.round(v))}<div class="kv"><span>Aktive Tage</span><span>${a.sportDays} / 7</span></div>` : '<small>Kein Sport in dieser Woche.</small>'}</section>
+  <section class="card"><h3>Gewohnheiten</h3>${hab || '<small>Keine angelegt.</small>'}</section>
+  <section class="card"><h3>Auswertung mit Claude</h3><button class="btn" data-act="copyweek">Woche für Claude kopieren</button><small class="mut" style="display:block;margin-top:6px">Kopiert deine Daten dieser und der Vorwoche samt Auftrag. Im Chat einfügen, dann bekommst du eine Auswertung.</small></section>`;
 }
 function vSport() {
   const Y = S.year, jan1 = new Date(Y, 0, 1), off = (jan1.getDay() + 6) % 7, nd = (new Date(Y, 11, 31) - jan1) / 864e5 + 1, weeks = Math.ceil((nd + off) / 7);
@@ -294,13 +440,16 @@ function vMuster() {
   const b2 = ds_.filter(d => day(d).mood?.v);
   const sp1 = b2.filter(d => sportMin(d) > 0).map(d => day(d).mood.v), sp0 = b2.filter(d => !sportMin(d)).map(d => day(d).mood.v);
   if (sp1.length >= 3 && sp0.length >= 3) out.push(ins('Stimmung und Sport', `<div class="kv"><span>Mit Sport</span><span>Ø ${f1(avg(sp1))} <small>(${sp1.length})</small></span></div><div class="kv"><span>Ohne Sport</span><span>Ø ${f1(avg(sp0))} <small>(${sp0.length})</small></span></div>`));
-  // 3) Spätes Koffein und Schlaf
-  const late = [], early = [];
-  ds_.forEach(d => { const s = day(d).sleep, p = day(addDays(d, -1)).coffee; if (!s || !p || !p.length || !(sleepDur(s) != null || s.q)) return; const l = p.map(c => tmin(c.t)).sort((x, y) => y - x)[0]; (l >= 900 ? late : early).push(s); });
-  if (late.length >= 3 && early.length >= 3) {
-    const row = (l, arr) => `<div class="kv"><span>${l}</span><span>${f1(avg(arr.map(s => s.q).filter(Boolean)))} erholt · ${fmtDur(avg(arr.map(sleepDur).filter(x => x != null)))} <small>(${arr.length})</small></span></div>`;
-    out.push(ins('Letzter Kaffee am Vortag und Schlaf', row('Nach 15 Uhr', late) + row('Vor 15 Uhr', early)));
-  }
+  // 3) Restkoffein beim Zubettgehen und Schlaf
+  const rb = {};
+  ds_.forEach(d => {
+    const sl = day(d).sleep; if (!sl || !sl.bed || !(sleepDur(sl) != null || sl.q)) return;
+    const m = tmin(sl.bed), bd = m >= 900 ? addDays(d, -1) : d; if (!Object.keys(day(bd)).length) return;
+    const r = caffeineAt(bd, m), k = r < 25 ? '1 unter 25 mg' : r < 75 ? '2 25 bis 75 mg' : '3 über 75 mg';
+    (rb[k] || (rb[k] = [])).push(sl);
+  });
+  const rk = Object.keys(rb).filter(k => rb[k].length >= 2).sort();
+  if (rk.length >= 2) out.push(ins('Restkoffein beim Zubettgehen und Schlaf', rk.map(k => `<div class="kv"><span>${k.slice(2)}</span><span>${f1(avg(rb[k].map(x => x.q).filter(Boolean)))} erholt · ${fmtDur(avg(rb[k].map(sleepDur).filter(x => x != null)))} <small>(${rb[k].length})</small></span></div>`).join('') + '<small>Rest nach deinem Koffein-Modell (Halbwertszeit in den Einstellungen).</small>'));
   // 4) Schlaf nach Sporttag
   const sa = [], sb = [];
   ds_.forEach(d => { const s = day(d).sleep; if (!s || sleepDur(s) == null) return; (sportMin(addDays(d, -1)) > 0 ? sa : sb).push(sleepDur(s)); });
@@ -330,8 +479,10 @@ function viewSettings() {
   <details class="card"><summary>Darstellung</summary>${chips([['dark', 'Dunkel'], ['light', 'Hell'], ['system', 'System']], c.theme, 'theme')}</details>
   <details class="card"><summary>Koffein</summary>
     <label class="mut">Tageslimit (mg)<br><input type="number" inputmode="numeric" data-cfgv="limit" value="${c.limit}"></label>
+    <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 5}"></label>
     <small class="mut">Als Orientierung gelten für gesunde Erwachsene etwa 400 mg pro Tag. Die Werte unten sind grobe Richtwerte und du kannst sie ändern.</small>
     ${list('coffee', c.coffee, it => inp('coffee', it, 'e', 'em') + inp('coffee', it, 'name') + inp('coffee', it, 'mg', '', 'number'))}
+    <small class="mut">CoffeeB-Werte sind geschätzt (Hersteller nennt keinen Wert; ca. 6 g Arabica pro Ball). Wenn du den mg-Wert änderst, entfällt das „≈“.</small>
     <button class="btn" data-act="cfgadd" data-kind="coffee">＋ Getränk</button></details>
   <details class="card"><summary>Sportarten</summary>
     ${list('sports', c.sports, it => inp('sports', it, 'e', 'em') + inp('sports', it, 'name'))}
@@ -403,6 +554,19 @@ const A = {
     save(); closeSheet();
   },
   sclose() { closeSheet(); return 'noRender'; },
+  copyday(el) {
+    const k = el.dataset.kind, src = day(el.dataset.src)[k] || [], isT = S.date === todayStr(), now = nowT(), dst = sec(S.date, k);
+    src.forEach(e => { const c = Object.assign({}, e, { id: uid() }); if (isT && c.t && c.t > now) c.t = now; dst.push(c); });
+    save(); toast(src.length + (src.length === 1 ? ' Eintrag übernommen' : ' Einträge übernommen'));
+  },
+  wprev() { S.week = addDays(S.week, -7); },
+  wnext() { if (S.week < weekStart(todayStr())) S.week = addDays(S.week, 7); },
+  copyweek() {
+    const dates = Array.from({ length: 14 }, (_, i) => addDays(S.week, i - 7)), days = {};
+    dates.forEach(d => { if (d < addDays(S.week, 7) && Object.keys(day(d)).length) days[d] = day(d); });
+    const txt = `Hier sind meine Tracker-Daten für KW ${isoWeek(S.week)} (${S.week} bis ${addDays(S.week, 6)}) plus die Vorwoche zum Vergleich. Bitte werte aus: Muster zwischen Schlaf, Stimmung, Koffein (Koffein-Limit ${DB.cfg.limit} mg, Halbwertszeit ${DB.cfg.halfLife || 5} h), Sport und Gewohnheiten; was lief gut, was könnte ich ändern. Schlaf zählt zum Tag des Aufwachens. mood.v 1 bis 5 (5 am besten), sleep.q Erholung 1 bis 5. Bitte vorsichtig mit Schlüssen bei wenigen Tagen.\n\n` + JSON.stringify({ tracker: 1, days });
+    copy(txt, 'Woche kopiert, jetzt im Chat einfügen'); return 'noRender';
+  },
   vtab(el) { S.vtab = el.dataset.v; },
   range(el) { S.range = +el.dataset.v; },
   yprev() { S.year--; }, ynext() { if (S.year < new Date().getFullYear()) S.year++; },
@@ -497,11 +661,11 @@ document.addEventListener('change', e => {
   if (t.dataset.f && t.type !== 'textarea') { setField(t.dataset.f, t.value, t); return; }
   if (t.dataset.cfg) {
     const it = DB.cfg[t.dataset.cfg].find(x => x.id === t.dataset.id); if (!it) return;
-    it[t.dataset.p] = t.type === 'number' ? (Number(t.value) || 0) : t.value; save();
+    it[t.dataset.p] = t.type === 'number' ? (Number(t.value) || 0) : t.value; if (t.dataset.p === 'mg') delete it.est; save();
     if (t.dataset.p === 'type') toast('Gespeichert');
     return;
   }
-  if (t.dataset.cfgv) { DB.cfg[t.dataset.cfgv] = Number(t.value) || 400; save(); }
+  if (t.dataset.cfgv) { const k = t.dataset.cfgv, v = Number(t.value); DB.cfg[k] = k === 'halfLife' ? Math.min(12, Math.max(1, v || 5)) : (v || 400); save(); }
 });
 document.addEventListener('input', e => {
   const t = e.target;

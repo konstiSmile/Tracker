@@ -76,3 +76,9 @@ details.card>*:not(summary){margin-top:12px}
 #toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 84px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:30;font-size:.9rem;max-width:90vw;text-align:center}
 .hab .e{flex:none}
 .ent input.t{min-width:96px;width:96px}
+.chip.fav{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--card2))}
+.wkt{width:100%;border-collapse:collapse;font-size:.82rem;text-align:center}
+.wkt th{font-weight:600;color:var(--mut);padding:4px 0;font-size:.78rem}
+.wkt td{padding:7px 0;border-top:1px solid var(--line)}
+.wkt td:first-child{text-align:left;color:var(--mut);font-size:.72rem;padding-right:4px;white-space:nowrap}
+.wkt .today{color:var(--acc)}

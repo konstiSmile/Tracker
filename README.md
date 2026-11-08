@@ -27,3 +27,10 @@ Einstellungen → Daten, Backup und Import. Dort „Auftrag für Claude kopieren
 
 ## Änderungen
 In `sw.js` die Cache-Version (`tracker-vN`) und in `app.js` `VERSION` erhöhen. Der Service Worker lädt zuerst aus dem Netz, sonst aus dem Zwischenspeicher.
+
+## Version 1.1
+- Kaffee und Sport: Oft genutztes steht vorn (Gewichtung nach Häufigkeit, gleichem Wochentag und Tageszeit, letzte 120 Tage). Knöpfe „Wie gestern“ und „Wie letzten <Wochentag>“.
+- CoffeeB als Getränke (Espresso, Lungo, Lungo Forte, Decaf). Der Hersteller nennt keinen mg-Wert; geschätzt aus ca. 5,7 bis 6,2 g Arabica pro Ball (`est: true`, Anzeige „≈“).
+- Restkoffein-Kurve (Halbwertszeit einstellbar, Standard 5 h) mit Wert jetzt und beim Zubettgehen.
+- Schlaf-Rhythmus (Balkenchart, Streuung, Wochenende vs. Woche), Wochenrückblick (KW, Vergleich zur Vorwoche, „Woche für Claude kopieren“), Muster nach Restkoffein beim Zubettgehen.
+- Config-Migration: `cfg.v = 2` ergänzt fehlende Standard-Getränke bei bestehenden Daten.
