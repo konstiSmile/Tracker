@@ -49,3 +49,6 @@ Farbschema „Bergnebel“ nach Vorlage des Nutzers: #F8DEBD (Pfirsichcreme), #D
 
 ## Version 1.5
 Helleres Design (neuer Standard, `cfg.v = 3`; ein gespeicherter Dunkelmodus wird einmalig auf Hell umgestellt, in Einstellungen → Darstellung wieder wählbar). Orientierung an den oberen drei Farben #F8DEBD, #D1B091, #9C8E8D als Flächen; Schrift in den dunklen Tönen (#34302F, #4E4C4F, #22211F), Akzent-Text in dunklem Sand (`--acc-t`). Sanfter Verlauf im Hintergrund, helle Icons.
+
+## Version 1.6
+Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minuten-Schritten. Schließt nicht beim Drehen, nur mit dem Haken (✓) oder Tippen neben das Fenster (übernimmt den gewählten Wert); „Jetzt“ und „Leeren“ (bei Kaffee-Uhrzeit ohne „Leeren“). Wird das Rad nicht angefasst, bleibt eine vorhandene krumme Uhrzeit (z. B. 12:34) unverändert. Gilt für Schlaf (Bett, Aufgewacht), Kaffee-Uhrzeit und Sport-Uhrzeit.

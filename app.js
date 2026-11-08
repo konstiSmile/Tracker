@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '1.5';
+const VERSION = '1.6';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -263,8 +263,8 @@ function viewHeute() {
   </section>
 
   <section class="card"><h3>Schlaf <small style="text-transform:none;letter-spacing:0">Nacht auf ${isToday ? 'heute' : 'diesen Tag'}</small></h3>
-    <div class="row"><label class="mut">Ins Bett<br><input type="time" data-f="sleep.bed" value="${sl.bed || ''}"></label>
-    <label class="mut">Aufgewacht<br><input type="time" data-f="sleep.wake" value="${sl.wake || ''}"></label>
+    <div class="row"><div class="tfield mut">Ins Bett<button class="timebtn" data-act="tpick" data-t="sleep.bed">${sl.bed || '–:–'}</button></div>
+    <div class="tfield mut">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow" style="text-align:right"><div class="big">${fmtDur(dur)}</div><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small></div></div>
     <div class="lbl">Wie erholt fühlst du dich?</div>
     <div class="smileys">${REST_E.map((e, i) => `<button class="sm ${sl.q === i + 1 ? 'on' : ''}" style="--c:${MCOL(i + 1)}" data-act="srate" data-v="${i + 1}">${e}</button>`).join('')}</div>
@@ -286,7 +286,7 @@ function viewHeute() {
     ${copyBtns('coffee')}
     ${cr.top.length && cr.rest.length ? `<button class="more" data-act="tog" data-k="cmore">${S.open.cmore ? 'Weniger Getränke' : `Weitere Getränke (${cr.rest.length})`}</button>` : ''}
     ${(!cr.top.length || S.open.cmore) ? `<div class="chips sub">${cr.rest.map(c => cChip(c)).join('')}</div>` : ''}
-    ${cof.map(c => `<div class="ent"><input class="t" type="time" data-f="coffeet" data-id="${c.id}" value="${c.t}"><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}">✕</button></div>`).join('')}
+    ${cof.map(c => `<div class="ent"><button class="timebtn t" data-act="tpick" data-t="coffee" data-id="${c.id}">${c.t}</button><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}">✕</button></div>`).join('')}
     ${caffeineBlock(d)}
   </section>
 
@@ -554,7 +554,26 @@ const A = {
     sec(S.date, 'sport').push({ id: uid(), t: s.t || '', name: s.name, e: s.e, min: s.min, int: s.int });
     save(); closeSheet();
   },
-  sclose() { closeSheet(); return 'noRender'; },
+  sclose() { if (TP.on) tpFinish(tpValue()); else closeSheet(); return 'noRender'; },
+  tpick(el) {
+    const t = el.dataset.t;
+    if (t === 'sleep.bed' || t === 'sleep.wake') {
+      const k = t.split('.')[1];
+      openTime({ title: k === 'bed' ? 'Ins Bett' : 'Aufgewacht', orig: (day(S.date).sleep || {})[k] || '', def: k === 'bed' ? '23:00' : '07:00', canClear: true, apply: v => setField(t, v) });
+    } else if (t === 'coffee') {
+      const c = sec(S.date, 'coffee').find(x => x.id === el.dataset.id); if (!c) return 'noRender';
+      openTime({ title: 'Uhrzeit · ' + c.name, orig: c.t, def: nowT(), canClear: false, apply: v => { if (v) { c.t = v; save(); } } });
+    } else if (t === 'sport' && S.sp) {
+      openTime({ title: 'Uhrzeit · Sport', orig: S.sp.t || '', def: nowT(), canClear: true, back: true, apply: v => { S.sp.t = v; } });
+    }
+    return 'noRender';
+  },
+  tpdone() { tpFinish(tpValue()); return 'noRender'; },
+  tpclear() { tpFinish(''); return 'noRender'; },
+  tpnow() {
+    const d = new Date(); let h = d.getHours(), m = Math.round(d.getMinutes() / 5); if (m === 12) { m = 0; h = Math.min(23, h + 1); }
+    TP.touched = true; $('#tp-h').scrollTo({ top: h * TPI, behavior: 'smooth' }); $('#tp-m').scrollTo({ top: m * TPI, behavior: 'smooth' }); return 'noRender';
+  },
   copyday(el) {
     const k = el.dataset.kind, src = day(el.dataset.src)[k] || [], isT = S.date === todayStr(), now = nowT(), dst = sec(S.date, k);
     src.forEach(e => { const c = Object.assign({}, e, { id: uid() }); if (isT && c.t && c.t > now) c.t = now; dst.push(c); });
@@ -618,8 +637,48 @@ function copy(txt, msg) {
   const fb = () => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast(msg); } catch (e) { toast('Kopieren nicht möglich'); } t.remove(); };
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast(msg), fb); else fb();
 }
-function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; }
-function closeSheet() { $('#sheet').hidden = true; S.sp = null; }
+function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
+function closeSheet() { $('#sheet').hidden = true; S.sp = null; TP.on = false; document.body.classList.remove('noscroll'); }
+
+/* ---------- Zeitrad (5-Minuten-Schritte) ---------- */
+const TPI = 40, TP = { on: false };
+function openTime(o) {
+  Object.assign(TP, { on: true, touched: false, canClear: true, back: false }, o);
+  let [h, m] = (o.orig || o.def || '07:00').split(':').map(Number), m5 = Math.round(m / 5);
+  if (m5 === 12) { m5 = 0; h = Math.min(23, h + 1); }
+  TP.h = h; TP.m5 = m5;
+  openSheet(`<div class="tp-head"><b>${esc(o.title)}</b><button class="tp-ok" data-act="tpdone" aria-label="Übernehmen">✓</button></div>
+    <div class="tp-wheel"><div class="tp-band"></div>
+      <div class="tp-col" id="tp-h">${Array.from({ length: 24 }, (_, i) => `<div class="tp-i" data-i="${i}">${pad(i)}</div>`).join('')}</div>
+      <div class="tp-sep">:</div>
+      <div class="tp-col" id="tp-m">${Array.from({ length: 12 }, (_, i) => `<div class="tp-i" data-i="${i}">${pad(i * 5)}</div>`).join('')}</div></div>
+    <div class="row" style="justify-content:center"><button class="btn" data-act="tpnow">Jetzt</button>${TP.canClear ? '<button class="btn" data-act="tpclear">Leeren</button>' : ''}</div>
+    <div class="mut" style="text-align:center;font-size:.78rem;margin-top:10px">Mit ✓ oder Tippen neben das Fenster übernehmen</div>`);
+  requestAnimationFrame(() => {
+    const hc = $('#tp-h'), mc = $('#tp-m'); if (!hc || !mc) return;
+    TP.ready = false; hc.scrollTop = TP.h * TPI; mc.scrollTop = TP.m5 * TPI; setTimeout(() => { TP.ready = true; }, 450);
+    [hc, mc].forEach(col => {
+      tpMark(col);
+      col.addEventListener('scroll', () => { if (TP.ready) TP.touched = true; cancelAnimationFrame(col._r); col._r = requestAnimationFrame(() => tpMark(col)); }, { passive: true });
+      ['pointerdown', 'wheel', 'touchstart'].forEach(ev => col.addEventListener(ev, () => { TP.touched = true; }, { passive: true }));
+      col.addEventListener('click', e => { const it = e.target.closest('.tp-i'); if (it) { TP.touched = true; col.scrollTo({ top: +it.dataset.i * TPI, behavior: 'smooth' }); } });
+    });
+  });
+}
+function tpMark(col) {
+  const n = col.children.length, i = Math.min(n - 1, Math.max(0, Math.round(col.scrollTop / TPI)));
+  [...col.children].forEach((c, k) => c.classList.toggle('sel', k === i));
+}
+function tpRead() {
+  const h = Math.min(23, Math.max(0, Math.round($('#tp-h').scrollTop / TPI))), m = Math.min(11, Math.max(0, Math.round($('#tp-m').scrollTop / TPI))) * 5;
+  return pad(h) + ':' + pad(m);
+}
+function tpValue() { return (!TP.touched && TP.orig) ? TP.orig : tpRead(); }
+function tpFinish(val) {
+  const back = TP.back, apply = TP.apply; TP.on = false;
+  if (back) { apply(val); $('#sbody').innerHTML = sportSheet(); return; }
+  closeSheet(); apply(val); render();
+}
 function sportSheet() {
   const s = S.sp;
   return `<h3>${s.id === '_new' ? 'Neue Sportart' : esc(s.e + ' ' + s.name)}</h3>
@@ -628,7 +687,7 @@ function sportSheet() {
   ${chips([15, 20, 30, 45, 60, 90, 120].map(v => [v, v]), s.min, 'spmin')}
   <div class="row sub"><input type="number" inputmode="numeric" value="${s.min}" data-sp="min" style="width:100px"><span class="mut">oder eigene Zahl</span></div>
   <div class="lbl">Intensität</div>${chips([[1, 'leicht'], [2, 'mittel'], [3, 'hart']], s.int, 'spint')}
-  <div class="lbl">Uhrzeit (optional)</div><input type="time" value="${s.t || ''}" data-sp="t">
+  <div class="lbl">Uhrzeit (optional)</div><button class="timebtn" data-act="tpick" data-t="sport">${s.t || '–:–'}</button>
   <div class="row sub"><button class="btn pri grow" data-act="spsave">Speichern</button><button class="btn" data-act="sclose">Abbrechen</button></div>`;
 }
 function doImport(mode) {
