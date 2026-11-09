@@ -132,4 +132,22 @@ body.noscroll{overflow:hidden}
 .pweye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:34px;border-radius:12px;background:transparent;border:0;font-size:18px;padding:0}
 
 .chip.pend{border-color:color-mix(in srgb,var(--com) 70%,transparent);background:color-mix(in srgb,var(--com) 12%,var(--card2))}
-.ent.pend{box-shadow:inset 3px 0 0 var(--com)}
+
+/* 1.13: weitere/versteckt, langes Drücken, Stimmungs-Regler, Kurve abtasten */
+.chip,.hab{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.chip.hidc{opacity:.55}
+.morehid{display:block;color:var(--mut);font-size:.76rem;padding:9px 2px 7px}
+.hint{display:block;font-size:.72rem;margin-top:10px;opacity:.85}
+.hab.newh{color:var(--mut);background:transparent;border:1px dashed color-mix(in srgb,var(--mut) 45%,transparent)}
+.cgraph{touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:crosshair}
+.moodtop{display:flex;align-items:center;gap:10px;min-height:44px;margin-bottom:8px}
+.moodemo{font-size:2rem;line-height:1}
+.moodtop .x{width:36px;height:36px;border-radius:12px;color:var(--mut);flex:none}
+.moodbox.unset .moodemo{filter:grayscale(1);opacity:.5}
+.moodbox.unset #mood-l{color:var(--mut)}
+.mslider{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;padding:0;border:0;border-radius:999px;margin:10px 0 6px;background:linear-gradient(90deg,#d6564f 0%,#e39a4c 28%,#e2cc5c 50%,#a3c76b 74%,#4fae6c 100%)}
+.mslider:focus{border:0}
+.mslider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:32px;height:32px;border-radius:50%;background:var(--card);border:3px solid var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.mslider::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--card);border:3px solid var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.mslider::-moz-range-track{background:transparent}
+.moodbox.unset .mslider::-webkit-slider-thumb{border-color:var(--mut);opacity:.7}

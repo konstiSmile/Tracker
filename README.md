@@ -71,3 +71,11 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 1.12
 - Sport: neue Option „Pendelweg 🚴“ (≈3–4 km, `commute:true`, Standard 15 min, leicht). Chip mit bläulicher Umrandung; Eintrag trägt `c:1`. Verlauf → Sport: Tage nur mit Pendelweg und die Balken in „Nach Sportart“ sind blau statt grün. Migration `cfg.v = 4` ergänzt Pendelweg bei bestehenden Daten.
+
+### 1.13
+- **Langes Drücken** (ca. 0,5 s) auf Getränk, Sportart oder Gewohnheit öffnet „Bearbeiten“: Symbol, Name, Speichern, Verstecken/Einblenden, Löschen. Versteckte Einträge (`hid:true`) stehen unter einem kleinen grauen „weitere (n)“. In den Einstellungen sind die Listen antippbare Chips mit demselben Fenster.
+- **Gewohnheiten:** 12 zusätzliche Vorschläge (h9–h20, je 6 positiv/negativ), anfangs versteckt. „＋ Neu“ unter „weitere“.
+- **Sport:** Antippen fügt sofort hinzu (keine Dauer/Intensität mehr; Eintrag `{id,t,name,e,c?}`). 16 Sportarten, 6 neue anfangs versteckt. Verlauf zählt Einheiten statt Minuten (`sportN`). Blauer Streifen beim Pendelweg in der Tagesliste entfernt (Chip und Verlauf bleiben blau).
+- **Stimmung:** Regler 1–5 in Zehntelschritten (rot → grün), `mood.v` kann Kommawerte haben; Emoji über `Math.round`.
+- **Koffein:** Kurve gedrückt halten und ziehen zeigt das Restkoffein zur Uhrzeit, beim Loslassen wieder 22 Uhr. Getränke können **Größen** haben (`sizes:[{l,mg}]`, erste = Standard); beim Antippen erscheint die Größenwahl, der Eintrag heißt z. B. „Cola 0,5 l“.
+- Migration `cfg.v = 5`: ergänzt Größen bei unveränderten Standard-Getränken, „Mate“, neue Sportarten und Gewohnheiten (versteckt). Gelöschte Standard-Einträge kommen nicht zurück.
