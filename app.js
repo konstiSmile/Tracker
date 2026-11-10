@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.1';
+const VERSION = '2.2';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +26,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 5, v: 6,
+  theme: 'light', limit: 400, halfLife: 6, v: 7,
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -126,7 +126,8 @@ function norm(r) {
     ['sports', 'habits'].forEach(k => DEF_CFG[k].forEach(d => { if (neu.includes(d.id) && !r.cfg[k].some(x => x.id === d.id)) r.cfg[k].push(JSON.parse(JSON.stringify(d))); }));
   }
   ensureIcons(r.cfg);   // Version 2.0: Zeichnungen statt Emojis
-  r.cfg.v = 6;
+  if (sv < 7 && (r.cfg.halfLife || 5) === 5) r.cfg.halfLife = 6;   // Version 2.2: Standard-Halbwertszeit 6 h (eigene Werte bleiben)
+  r.cfg.v = 7;
   return r;
 }
 let saveTimer = 0;
@@ -206,7 +207,7 @@ function weekStart(d) { return addDays(d, -((parse(d).getDay() + 6) % 7)); }
 function isoWeek(s) { const d = parse(s); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); }
 
 function caffeineAt(d, minute) {
-  const hl = (DB.cfg.halfLife || 5) * 60, at = dn(d) * 1440 + minute; let sum = 0;
+  const hl = (DB.cfg.halfLife || 6) * 60, at = dn(d) * 1440 + minute; let sum = 0;
   for (let k = -2; k <= 1; k++) {
     const x = addDays(d, k);
     (day(x).coffee || []).forEach(c => { const t0 = dn(x) * 1440 + tmin(c.t); if (at >= t0) sum += (c.mg || 0) * Math.pow(.5, (at - t0) / hl); });
@@ -239,7 +240,7 @@ function caffeineBlock(d) {
   g += `<g id="cg-g" display="none"><line id="cg-l" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-width="1.5"/><circle id="cg-c" r="7" fill="var(--t3)" stroke="var(--card)" stroke-width="3"/></g></svg>`;
   return `<div class="sub"><div class="kv"><span>${isT ? 'Jetzt noch im Körper' : 'Höchststand am Tag'}</span><b>≈ ${Math.round(isT ? caffeineAt(d, nowM) : peak)} mg</b></div>
     <div class="kv"><span id="cg-lab">Um 22 Uhr noch im Körper</span><b id="cg-val">≈ ${Math.round(atBed)} mg</b></div>${g}
-    <small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. Vereinfachtes Modell mit ${DB.cfg.halfLife || 5} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
+    <small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. Vereinfachtes Modell mit ${DB.cfg.halfLife || 6} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
 }
 function rankItems(items, kind, d) {
   const today = todayStr(), wd = parse(d).getDay(), bucket = t => { const h = tmin(t) / 60; return h < 11 ? 0 : h < 15 ? 1 : h < 19 ? 2 : 3; };
@@ -573,7 +574,7 @@ function viewSettings() {
   <details class="card"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
   <details class="card"><summary>Koffein</summary>
     <label class="mut">Tageslimit (mg)<br><input type="number" inputmode="numeric" data-cfgv="limit" value="${c.limit}"></label>
-    <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 5}"></label>
+    <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 6}"></label>
     <small class="mut">Als Orientierung gelten für gesunde Erwachsene etwa 400 mg pro Tag. Die Werte unten sind grobe Richtwerte und du kannst sie ändern.</small>
     ${list('coffee', c.coffee)}
     <small class="mut">CoffeeB-Werte sind geschätzt (Hersteller nennt keinen Wert; ca. 6 g Arabica pro Ball). Wenn du den mg-Wert änderst, entfällt das „≈“.</small></details>
@@ -716,7 +717,7 @@ const A = {
   copyweek() {
     const dates = Array.from({ length: 14 }, (_, i) => addDays(S.week, i - 7)), days = {};
     dates.forEach(d => { if (d < addDays(S.week, 7) && Object.keys(day(d)).length) days[d] = day(d); });
-    const txt = `Hier sind meine Tracker-Daten für KW ${isoWeek(S.week)} (${S.week} bis ${addDays(S.week, 6)}) plus die Vorwoche zum Vergleich. Bitte werte aus: Muster zwischen Schlaf, Stimmung, Koffein (Koffein-Limit ${DB.cfg.limit} mg, Halbwertszeit ${DB.cfg.halfLife || 5} h), Sport und Gewohnheiten; was lief gut, was könnte ich ändern. Schlaf zählt zum Tag des Aufwachens. mood.v 1 bis 5 (5 am besten, Tagesschnitt; mood.log sind die einzelnen Einträge mit Uhrzeit), sleep.q Erholung 1 bis 5. Bitte vorsichtig mit Schlüssen bei wenigen Tagen.\n\n` + JSON.stringify({ tracker: 1, days });
+    const txt = `Hier sind meine Tracker-Daten für KW ${isoWeek(S.week)} (${S.week} bis ${addDays(S.week, 6)}) plus die Vorwoche zum Vergleich. Bitte werte aus: Muster zwischen Schlaf, Stimmung, Koffein (Koffein-Limit ${DB.cfg.limit} mg, Halbwertszeit ${DB.cfg.halfLife || 6} h), Sport und Gewohnheiten; was lief gut, was könnte ich ändern. Schlaf zählt zum Tag des Aufwachens. mood.v 1 bis 5 (5 am besten, Tagesschnitt; mood.log sind die einzelnen Einträge mit Uhrzeit), sleep.q Erholung 1 bis 5. Bitte vorsichtig mit Schlüssen bei wenigen Tagen.\n\n` + JSON.stringify({ tracker: 1, days });
     copy(txt, 'Woche kopiert, jetzt im Chat einfügen'); return 'noRender';
   },
   vtab(el) { S.vtab = el.dataset.v; },
@@ -956,7 +957,7 @@ document.addEventListener('change', e => {
     return;
   }
   if (t.dataset.sync) { const c = syncCfg(); c[t.dataset.sync] = t.value.trim(); localStorage.setItem(SYNC_KEY, JSON.stringify(c)); toast('Gespeichert'); return; }
-  if (t.dataset.cfgv) { const k = t.dataset.cfgv, v = Number(t.value); DB.cfg[k] = k === 'halfLife' ? Math.min(12, Math.max(1, v || 5)) : (v || 400); save(); }
+  if (t.dataset.cfgv) { const k = t.dataset.cfgv, v = Number(t.value); DB.cfg[k] = k === 'halfLife' ? Math.min(12, Math.max(1, v || 6)) : (v || 400); save(); }
 });
 document.addEventListener('input', e => {
   const t = e.target;

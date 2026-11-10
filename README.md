@@ -96,3 +96,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - **Getränke** als kompaktes Raster, zwei nebeneinander (`.cgrid`, `.cti`); Häkchen bzw. Zähler als kleine Marke oben rechts.
 - **Mehrere Stimmungen pro Tag:** `mood.log = [{id,t,v}]`, `mood.v` ist der Tagesschnitt (Verlauf und Muster rechnen damit weiter). Ältere Tage mit nur `mood.v` erscheinen als ein Eintrag ohne Uhrzeit. Regler ändert den gerade aktiven Eintrag (10 Minuten lang oder nach Antippen), sonst legt er einen neuen an.
 - Test: `tests/t3.py` (Playwright, 70 Prüfungen hell/dunkel).
+
+### 2.2
+- Standard-Halbwertszeit von Koffein 6 h statt 5 h. Migration `cfg.v = 7`: wer noch 5 h (alter Standard) eingestellt hatte, bekommt 6 h; eigene Werte bleiben.
