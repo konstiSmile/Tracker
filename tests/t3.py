@@ -17,7 +17,7 @@ try:
         ctx=b.new_context(viewport={'width':390,'height':780},has_touch=True,is_mobile=True,service_workers='block',device_scale_factor=2)
         ctx.add_init_script("if(!sessionStorage.s){sessionStorage.s=1;localStorage.setItem('tracker-v1',%s)}"%json.dumps(json.dumps(sd)))
         pg=ctx.new_page(); errs=[]; pg.on('pageerror',lambda e:errs.append(str(e)))
-        pg.goto('http://localhost:8765/'); pg.wait_for_selector('.card')
+        pg.goto('http://localhost:8765/'); pg.wait_for_selector('.card'); pg.add_style_tag(content='#fb{pointer-events:none}')
         T=theme+': '
         # --- Stimmung mehrfach
         def slide(v): pg.evaluate("v=>{const s=document.querySelector('.mslider');s.value=v;s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))}",v)
@@ -57,7 +57,7 @@ try:
         chk(T+'Text >=16',pg.evaluate("Math.min(...[...document.querySelectorAll('.cti span,.cti small,.mlog *,.mitem')].map(e=>parseFloat(getComputedStyle(e).fontSize)))")>=16)
         pg.locator('.cti[data-id=espresso]').first.click()
         chk(T+'Getränk eintragen',pg.evaluate("DB.days[S.date].coffee.length")==3)
-        if theme=='light': pg.locator('.a-coffee').screenshot(path='/tmp/coffee.png')
+        if theme=='light': pg.locator('.card.a-coffee').screenshot(path='/tmp/coffee.png')
         # --- langes Drücken -> kleines Menü
         cdp=ctx.new_cdp_session(pg)
         def lp(sel):
@@ -96,7 +96,7 @@ try:
         pg.click('[data-v=verlauf]'); chk(T+'Verlauf ok',pg.locator('svg').count()>3)
         for v in ['woche','sport','muster']: pg.click(f'[data-act=vtab][data-v={v}]')
         pg.click('[data-v=set]'); pg.click('[data-v=heute]')
-        if theme=='light': pg.locator('.a-mood').screenshot(path='/tmp/mood.png')
+        if theme=='light': pg.locator('.card.a-mood').screenshot(path='/tmp/mood.png')
         chk(T+'keine JS-Fehler',not errs)
         if errs: print(errs)
         ctx.close()

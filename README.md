@@ -105,3 +105,12 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 2.4
 - Die 50-mg-Linie erscheint nur, wenn die Kurve an dem Tag über 50 mg kommt.
+
+### 2.5
+- **Heute kürzer:** Jede Karte lässt sich über ihren Kopf ein- und ausklappen (`cfg.fold`, eingeklappt mit Kurzfassung rechts). Schlaf klappt von selbst zu, wenn er beim Öffnen schon vollständig ist. Reihenfolge heute nach Tageszeit (vor 11 Uhr Schlaf oben, ab 17 Uhr Stimmung und Gewohnheiten oben).
+- **Hinweistexte** verschwinden nach der ersten Nutzung (`cfg.seen`: `lp`, `cg`, `mood`).
+- **Abend-Check-in** (`ciSheet`): fünf Schritte im Fenster (Stimmung, Gefühle, Gewohnheiten, Bewegung, Frage des Tages), danach Abschluss mit Erfolgen und einer Erkenntnis. Karte oben ab 17 Uhr, sonst Knopf unten. `day.ci = 1`.
+- **Wochenrückblick** (`wrSheet`, `DB.weeks[Montag] = {v,best,hard,plan,done}`): Woche in Zahlen, Bewertung, schönster Moment, Schwieriges, Vorsatz. Karte auf Heute sonntags ab 12 Uhr sowie montags und dienstags für die Vorwoche; jederzeit unter Verlauf → Woche.
+- **Erfolge** (`fbList`, `fbCheck`, `#fb`): kurze Meldung oben, passend zum Tag oder zur Woche, jede höchstens einmal pro Tag (`tracker-fb` im localStorage), nur für heute.
+- **Erkenntnis** (`insights`): ein Satz aus den eigenen Daten, z. B. Stimmung an Sporttagen gegen Tage ohne.
+- Kleine Belohnung: Alle fünf Bereiche eingetragen lässt alle Kacheln kurz aufleuchten.

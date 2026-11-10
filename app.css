@@ -61,6 +61,36 @@ small,.mut{color:var(--mut)}
 /* Kartenkopf mit Illustrationskachel */
 .chead{display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
 .chead h3{margin:0;flex:1}
+.chead[role=button]{cursor:pointer;-webkit-user-select:none;user-select:none}
+.chead h3{display:block}
+.chead h3 small{display:block;font:400 var(--fs-1)/1.3 var(--sans);color:var(--mut)}
+.chead .fchev{width:20px;height:20px;color:var(--mut);flex:none}
+.card.folded{padding-top:var(--s-2);padding-bottom:var(--s-2)}
+.card.folded .chead,.card.cta .chead{margin-bottom:0}
+.card.cta{padding-top:var(--s-2);padding-bottom:var(--s-2)}
+.cilink{margin:0 0 var(--s-2);padding:0 var(--s-1);color:var(--mut)}
+.mlab{font-weight:700}
+.moodbox.unset .mlab{font-weight:400;color:var(--mut)}
+/* Check-in und Wochenrückblick */
+.ci-top{margin-bottom:var(--s-2);color:var(--mut)}
+.ci-top .bar{margin-top:var(--s-1)}
+.ci-nav{flex-wrap:nowrap;margin-top:var(--s-3)}
+.ci-done{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--s-1);margin-bottom:var(--s-2)}
+.ci-done .tile{width:72px;height:72px;border-radius:24px}
+.ci-done .tile .ic{width:56px;height:56px}
+.ci-done h3{margin:var(--s-1) 0 0}
+.fbrow{display:flex;align-items:center;gap:12px;padding:var(--s-1) 0}
+.fbrow .tile{width:40px;height:40px;border-radius:12px}
+.fbrow .tile .ic{width:32px;height:32px}
+.note{background:var(--inset);border-radius:var(--r-m);padding:12px var(--s-2);margin:var(--s-1) 0;overflow-wrap:break-word}
+.note small{display:block;margin-bottom:2px}
+/* Erfolgs-Meldung oben */
+#fb{position:fixed;left:var(--s-2);right:var(--s-2);top:calc(env(safe-area-inset-top) + var(--s-1));max-width:528px;margin:0 auto;z-index:28;display:flex;align-items:center;gap:12px;background:var(--card);border-radius:var(--r-m);padding:12px var(--s-2) 12px 12px;box-shadow:var(--sh-2);cursor:pointer;animation:fbin var(--t-slow) var(--ease)}
+#fb[hidden]{display:none}
+#fb .tile{width:44px;height:44px;border-radius:14px}
+#fb .tile .ic{width:34px;height:34px}
+#fb span{flex:1;min-width:0}
+@keyframes fbin{from{transform:translateY(-16px) scale(.96);opacity:0}}
 .tile{position:relative;width:48px;height:48px;border-radius:16px;background:var(--g);display:grid;place-items:center;flex:none;box-shadow:var(--sh-on)}
 .tile .ic{width:38px;height:38px}
 .tile.goal{animation:goal .7s var(--ease)}

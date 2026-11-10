@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.4';
+const VERSION = '2.5';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +26,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 6, v: 7,
+  theme: 'light', limit: 400, halfLife: 6, v: 7, seen: {}, fold: {},
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -109,7 +109,7 @@ function load() {
   return norm({ v: 1 });
 }
 function norm(r) {
-  r.v = 1; r.days = r.days || {};
+  r.v = 1; r.days = r.days || {}; r.weeks = r.weeks || {};
   const c = JSON.parse(JSON.stringify(DEF_CFG)), sv = (r.cfg && r.cfg.v) || 1;
   r.cfg = Object.assign(c, r.cfg || {});
   if (sv < 2) DEF_CFG.coffee.forEach(d => { if (!r.cfg.coffee.some(x => x.id === d.id)) r.cfg.coffee.push(JSON.parse(JSON.stringify(d))); });
@@ -163,7 +163,7 @@ const day = (d, create) => DB.days[d] || (create ? (DB.days[d] = {}) : {});
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
 
 /* ---------- Zustand ---------- */
-const S = { tab: 'heute', date: todayStr(), week: weekStart(todayStr()), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
+const S = { fold: {}, slf: {}, tab: 'heute', date: todayStr(), week: weekStart(todayStr()), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -242,7 +242,7 @@ function caffeineBlock(d) {
   g += `<g id="cg-g" display="none"><line id="cg-l" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-width="1.5"/><circle id="cg-c" r="7" fill="var(--t3)" stroke="var(--card)" stroke-width="3"/></g></svg>`;
   return `<div class="sub"><div class="kv"><span>${isT ? 'Jetzt noch im Körper' : 'Höchststand am Tag'}</span><b>≈ ${Math.round(isT ? caffeineAt(d, nowM) : peak)} mg</b></div>
     <div class="kv"><span id="cg-lab">Um 22 Uhr noch im Körper</span><b id="cg-val">≈ ${Math.round(atBed)} mg</b></div>${g}
-    <small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. ${s50 ? 'Gestrichelte Linie: 50 mg, darunter stört es den Schlaf bei den meisten kaum. ' : ''}Vereinfachtes Modell mit ${DB.cfg.halfLife || 6} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
+    ${DB.cfg.seen.cg ? '' : `<small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. ${s50 ? 'Gestrichelte Linie: 50 mg, darunter stört es den Schlaf bei den meisten kaum. ' : ''}Vereinfachtes Modell mit ${DB.cfg.halfLife || 6} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small>`}</div>`;
 }
 function rankItems(items, kind, d) {
   const today = todayStr(), wd = parse(d).getDay(), bucket = t => { const h = tmin(t) / 60; return h < 11 ? 0 : h < 15 ? 1 : h < 19 ? 2 : 3; };
@@ -339,15 +339,13 @@ function viewHeute() {
   const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">${gl('redo')}<span>${l}</span><small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   const posVis = DB.cfg.habits.filter(h => h.type === 'pos' && !h.hid), posDone = posVis.filter(hOn).length;
-  const dot = '<i class="dot"></i>';
-  return `
-  <header class="dhead day"><div class="row"><span class="grow">${isToday ? 'Heute' : `<a href="#" data-act="dtoday">Zu heute</a>`}</span><button data-act="dprev" aria-label="Tag zurück">${gl('left')}</button><button data-act="dnext" aria-label="Tag vor" ${isToday ? 'disabled' : ''}>${gl('right')}</button></div><h1>${esc(label)}</h1></header>
-
-  <section class="card a-mood">${chead('mood', 'Stimmung')}
-    <div class="moodbox ${mv ? '' : 'unset'} ${mlog.length && !mact ? 'idle' : ''}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow" id="mood-l">${mlab}</span></div>
+  const dot = '<i class="dot"></i>', hintLP = t => DB.cfg.seen.lp ? '' : `<small class="hint">${t}</small>`;
+  const head = `<header class="dhead day"><div class="row"><span class="grow">${isToday ? 'Heute' : `<a href="#" data-act="dtoday">Zu heute</a>`}</span><button data-act="dprev" aria-label="Tag zurück">${gl('left')}</button><button data-act="dnext" aria-label="Tag vor" ${isToday ? 'disabled' : ''}>${gl('right')}</button></div><h1>${esc(label)}</h1></header>`, P = {};
+  P.mood = `
+    <div class="moodbox ${mv ? '' : 'unset'} ${mlog.length && !mact ? 'idle' : ''}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow mlab" id="mood-l">${mlab}</span></div>
       <input type="range" class="mslider" min="1" max="5" step="0.1" value="${mact ? mact.v : mlog.length ? mlog[mlog.length - 1].v : 3}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>
     ${mlog.length ? `<div class="mlog">${mlog.map(x => { const on = mact && mact.id === x.id, i = Math.round(x.v); return `<div class="ent ${on ? 'act' : ''}"><button class="timebtn t" data-act="tpick" data-t="mood" data-id="${x.id}">${x.t || '–:–'}</button><button class="grow msel" data-act="msel" data-id="${x.id}" aria-pressed="${!!on}">${face(i, 'sm')}<span>${MOOD_N[i - 1]} · ${f1(x.v)}</span></button><button class="x" data-act="mdel" data-id="${x.id}" aria-label="Stimmung löschen">${gl('close')}</button></div>`; }).join('')}</div>
-      ${mact ? `<div class="chips sub"><button class="chip new" data-act="mnew">${gl('plus')}<span>Weitere Stimmung</span></button></div>` : `<small class="hint">Regler schieben: weitere Stimmung eintragen. Eintrag antippen: ändern.</small>`}` : ''}
+      ${mact ? `<div class="chips sub"><button class="chip new" data-act="mnew">${gl('plus')}<span>Weitere Stimmung</span></button></div>` : DB.cfg.seen.mood ? '' : `<small class="hint">Regler schieben: weitere Stimmung eintragen. Eintrag antippen: ändern.</small>`}` : ''}
     <button class="more" data-act="tog" data-k="mood" aria-expanded="${!!moodOpen}"><span>${moodOpen ? 'Weniger' : 'Mehr dazu: Gefühle, Frage, Notiz'}${!moodOpen && (m.tags?.length || qa.a || m.note) ? dot : ''}</span>${arrow(moodOpen)}</button>
     ${moodOpen ? `
       <div class="lbl">Gefühle</div>
@@ -356,9 +354,8 @@ function viewHeute() {
       <textarea data-f="mood.qa" data-q="${esc(q)}" placeholder="Kurz antworten …">${esc(qa.a || '')}</textarea>
       <div class="lbl">Freie Notiz</div>
       <textarea data-f="mood.note" placeholder="Was dir sonst noch durch den Kopf geht …">${esc(m.note || '')}</textarea>` : ''}
-  </section>
-
-  <section class="card a-sleep">${chead('sleep', 'Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`)}
+`;
+  P.sleep = `
     <div class="row slrow"><div class="tfield">Ins Bett<button class="timebtn" data-act="tpick" data-t="sleep.bed">${sl.bed || '–:–'}</button></div>
     <div class="tfield">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow sldur"><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small><div class="big">${fmtDur(dur)}</div></div></div>
@@ -373,34 +370,47 @@ function viewHeute() {
       <div class="mini">${[['score', 'Score'], ['deep', 'Tief'], ['rem', 'REM'], ['light', 'Leicht'], ['awake', 'Wach'], ['rhr', 'Ruhepuls']].map(([k, l]) => `<label>${l}<input type="number" inputmode="numeric" data-f="sleep.${k}" value="${sl[k] ?? ''}"></label>`).join('')}</div>
       <div class="lbl">Notiz zum Schlaf</div><textarea data-f="sleep.note" placeholder="Träume, Störungen …">${esc(sl.note || '')}</textarea>
       <small class="hint">Tipp: Uhr-Screenshot im Claude-Chat auswerten lassen und das Ergebnis unter Einstellungen → Import einfügen.</small>` : ''}
-  </section>
-
-  <section class="card a-coffee">${chead('coffee', 'Koffein', `${mg} / ${lim} mg`)}
+`;
+  P.coffee = `
     <div class="bar ${mg > lim ? 'warn' : ''}"><i style="width:${Math.min(100, mg / lim * 100)}%"></i></div>
     <small>${lastC ? 'Letzter Eintrag ' + lastC + ' Uhr' : 'Noch nichts eingetragen'}${mg > lim ? ' · über deinem Limit' : ''}</small>
     ${cr.top.length ? `<div class="lbl">${when}</div><div class="cgrid">${cr.top.map(c => cChip(c)).join('')}</div>` : ''}
     ${copyBtns('coffee')}
     ${cr.top.length ? `<button class="more" data-act="tog" data-k="cmore" aria-expanded="${!!S.open.cmore}"><span>${S.open.cmore ? 'Weniger Getränke' : `Weitere Getränke (${cr.rest.length})`}</span>${arrow(S.open.cmore)}</button>` : ''}
-    ${(!cr.top.length || S.open.cmore) ? `<div class="cgrid sub">${cr.rest.map(c => cChip(c)).join('')}<button class="cti new" data-act="edit" data-kind="coffee" data-id="_new">${gl('plus')}<span>Neu</span></button></div>${hidBlock('chid', cHid, cChip, 'cgrid')}<small class="hint">Lange drücken: bearbeiten, Größen, verstecken, löschen</small>` : ''}
+    ${(!cr.top.length || S.open.cmore) ? `<div class="cgrid sub">${cr.rest.map(c => cChip(c)).join('')}<button class="cti new" data-act="edit" data-kind="coffee" data-id="_new">${gl('plus')}<span>Neu</span></button></div>${hidBlock('chid', cHid, cChip, 'cgrid')}${hintLP('Lange drücken: bearbeiten, Größen, verstecken, löschen')}` : ''}
     ${cof.map(c => `<div class="ent"><button class="timebtn t" data-act="tpick" data-t="coffee" data-id="${c.id}">${c.t}</button><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${caffeineBlock(d)}
-  </section>
-
-  <section class="card a-sport">${chead('sport', 'Sport', sp.length ? sp.length + '×' : '')}
+`;
+  P.sport = `
     <div class="chips">${[...sr.top, ...sr.rest].map(x => sChip(x)).join('')}${newChip('sports')}</div>
     ${hidBlock('shid', sHid, sChip)}
     ${copyBtns('sport')}
     ${sp.map(x => `<div class="ent">${ic(sportIc(x))}<span class="grow">${esc(x.name)}${x.t ? ` <small>${x.t} Uhr</small>` : ''}</span><button class="x" data-act="sdel" data-id="${x.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
-    <small class="hint">Antippen fügt hinzu. Lange drücken: bearbeiten, verstecken, löschen</small>
-  </section>
-
-  <section class="card a-habit">${chead('habit', 'Gewohnheiten', posVis.length ? `${posDone} von ${posVis.length}` : '')}
+    ${hintLP('Antippen fügt hinzu. Lange drücken: bearbeiten, verstecken, löschen')}
+`;
+  P.habit = `
     <div class="lbl" style="margin-top:0">Positiv</div>${hgrp('pos')}
     <div class="lbl">Negativ (antippen, wenn es passiert ist)</div>${hgrp('neg')}
-    <small class="hint">Lange drücken: bearbeiten, verstecken, löschen</small>
-  </section>
-
-  <section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>`;
+    ${hintLP('Lange drücken: bearbeiten, verstecken, löschen')}
+`;
+  const M = {
+    mood: ['Stimmung', '', mlog.length ? (mlog.length > 1 ? 'Ø ' : '') + f1(m.v) + ' · ' + MOOD_N[Math.round(m.v) - 1] : 'offen'],
+    sleep: ['Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`, dur != null ? fmtDur(dur) + (sl.q ? ' · ' + REST_N[sl.q - 1] : '') : 'offen'],
+    coffee: ['Koffein', `${mg} / ${lim} mg`, `${mg} / ${lim} mg`],
+    sport: ['Sport', sp.length ? sp.length + '×' : '', sp.length ? sp.length + '×' : 'offen'],
+    habit: ['Gewohnheiten', posVis.length ? `${posDone} von ${posVis.length}` : '', posVis.length ? `${posDone} von ${posVis.length}` : '']
+  };
+  if (S.slf[d] == null) S.slf[d] = !!(sl.bed && sl.wake && sl.q);   // Schlaf klappt zu, wenn er beim Öffnen schon vollständig ist
+  const folded = k => k === 'sleep' ? (S.fold[d] ?? S.slf[d]) : !!DB.cfg.fold[k];
+  const card = k => { const f = folded(k), r = f ? M[k][2] : M[k][1]; return `<section class="card a-${k} ${f ? 'folded' : ''}"><div class="chead" role="button" tabindex="0" data-act="fold" data-k="${k}" aria-expanded="${!f}"><div class="tile on-g">${tile(k)}</div><h3>${M[k][0]}</h3>${r ? `<span class="mut">${r}</span>` : ''}${gl(f ? 'down' : 'up', 'fchev')}</div>${f ? '' : P[k]}</section>`; };
+  const hr = new Date().getHours();
+  const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
+  const wdue = isToday ? wrDue() : null;
+  const top = (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
+    + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>5 kurze Fragen, etwa 30 Sekunden</small></h3>${gl('right', 'fchev')}</div></section>` : '');
+  const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
+  <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
+  return head + top + order.map(card).join('') + foot;
 }
 function streakTxt(h, d) {
   const n = streak(h, d);
@@ -496,6 +506,7 @@ function vWoche() {
     <div class="kv"><span>Tage über dem Limit (${DB.cfg.limit} mg)</span><span>${a.over}</span></div>${a.lastAvg != null ? `<div class="kv"><span>Letzter Kaffee im Schnitt</span><span>${clockM(a.lastAvg)} Uhr</span></div>` : ''}`}</section>
   <section class="card"><h3>Sport</h3>${a.sportN ? `<div class="big">${a.sportN} ${a.sportN === 1 ? 'Einheit' : 'Einheiten'}</div>${dl(a.sportN, b.sportN, '', v => Math.round(v))}<div class="kv"><span>Aktive Tage</span><span>${a.sportDays} / 7</span></div>` : '<small>Kein Sport in dieser Woche.</small>'}</section>
   <section class="card"><h3>Gewohnheiten</h3>${hab || '<small>Keine angelegt.</small>'}</section>
+  ${(() => { const o = DB.weeks[S.week] || {}, has = o.v || o.best || o.hard || o.plan; return `<section class="card"><h3>Rückblick${o.v ? face(o.v) : ''}</h3>${has ? [['best', 'Schönster Moment'], ['hard', 'Schwierig war'], ['plan', 'Vorsatz für die Woche danach']].filter(([k]) => o[k]).map(([k, l]) => `<div class="note"><small>${l}</small>${esc(o[k])}</div>`).join('') : '<small>Noch kein Rückblick für diese Woche.</small>'}<div class="sub"><button class="btn" data-act="wropen" data-w="${S.week}">${has ? 'Rückblick ändern' : 'Rückblick ausfüllen'}</button></div></section>`; })()}
   <section class="card"><h3>Auswertung mit Claude</h3><button class="btn" data-act="copyweek">Woche für Claude kopieren</button><small class="mut" style="display:block;margin-top:6px">Kopiert deine Daten dieser und der Vorwoche samt Auftrag. Im Chat einfügen, dann bekommst du eine Auswertung.</small></section>`;
 }
 function vSport() {
@@ -625,9 +636,26 @@ const A = {
   dnext() { if (S.date < todayStr()) S.date = addDays(S.date, 1); },
   dtoday() { S.date = todayStr(); },
   tog(el) { S.open[el.dataset.k] = !S.open[el.dataset.k]; },
-  msel(el) { const on = S.ma && S.ma.id === el.dataset.id && moodAct(day(S.date).mood); S.ma = on ? null : { id: el.dataset.id, d: S.date, at: Date.now() }; },
+  msel(el) { markSeen('mood'); const on = S.ma && S.ma.id === el.dataset.id && moodAct(day(S.date).mood); S.ma = on ? null : { id: el.dataset.id, d: S.date, at: Date.now() }; },
   mnew() { S.ma = null; toast('Regler schieben für die nächste Stimmung'); },
   mdel(el) { const o = sec(S.date, 'mood'); o.log = moodLog(o).filter(x => x.id !== el.dataset.id); if (S.ma && S.ma.id === el.dataset.id) S.ma = null; moodSync(o); cleanDay(S.date); save(); },
+  fold(el) { const k = el.dataset.k, d = S.date; if (k === 'sleep') S.fold[d] = !(S.fold[d] ?? S.slf[d]); else { DB.cfg.fold[k] = !DB.cfg.fold[k]; save(); } },
+  fbx() { fbHide(); return 'noRender'; },
+  ciopen() { S.ci = { step: 0 }; openSheet(ciSheet()); return 'noRender'; },
+  ciprev() { S.ci.step = Math.max(0, S.ci.step - 1); $('#sbody').innerHTML = ciSheet(); return 'noRender'; },
+  cinext() {
+    S.ci.step++;
+    if (S.ci.step >= CI_N) { day(S.date, true).ci = 1; save(); render(); }
+    $('#sbody').innerHTML = ciSheet(); $('#sbody').scrollTop = 0; return 'noRender';
+  },
+  wropen(el) { S.wr = { w: el.dataset.w, step: 0 }; openSheet(wrSheet()); return 'noRender'; },
+  wrprev() { S.wr.step = Math.max(0, S.wr.step - 1); $('#sbody').innerHTML = wrSheet(); return 'noRender'; },
+  wrrate(el) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}), v = +el.dataset.v; if (o.v === v) delete o.v; else o.v = v; save(); $('#sbody').innerHTML = wrSheet(); return 'noRender'; },
+  wrnext() {
+    if (++S.wr.step < 3) { $('#sbody').innerHTML = wrSheet(); $('#sbody').scrollTop = 0; return 'noRender'; }
+    (DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {})).done = 1; save(); closeSheet();
+    fbShow({ a: 'sleep', t: 'Wochenrückblick gespeichert. Auf eine gute neue Woche!' });
+  },
   mclose() { closeMenu(); return 'noRender'; },
   medit() { const m = S.menu; closeMenu(); if (m) openEdit(m.kind, m.id); return 'noRender'; },
   mhide() {
@@ -693,7 +721,7 @@ const A = {
     const t = el.dataset.t;
     if (t === 'sleep.bed' || t === 'sleep.wake') {
       const k = t.split('.')[1];
-      openTime({ title: k === 'bed' ? 'Ins Bett' : 'Aufgewacht', orig: (day(S.date).sleep || {})[k] || '', def: k === 'bed' ? '23:00' : '07:00', canClear: true, apply: v => setField(t, v) });
+      openTime({ title: k === 'bed' ? 'Ins Bett' : 'Aufgewacht', orig: (day(S.date).sleep || {})[k] || '', def: k === 'bed' ? '23:00' : '07:00', canClear: true, apply: v => { setField(t, v); setTimeout(() => fbCheck('sleep'), 60); } });
     } else if (t === 'mood') {
       const o = sec(S.date, 'mood'), id = el.dataset.id, x = moodLog(o).find(y => y.id === id); if (!x) { cleanDay(S.date); return 'noRender'; }
       openTime({ title: 'Uhrzeit · Stimmung', orig: x.t, def: nowT(), canClear: false, apply: v => { if (v) { if (!o.log) o.log = moodLog(o); o.log.find(y => y.id === id).t = v; save(); } } });
@@ -760,6 +788,7 @@ async function checkUpdate(manual) {
 function autoCheck() { let t = 0; try { t = Number(localStorage.getItem('tracker-upd')) || 0; } catch (e) { } if (Date.now() - t > 10 * 60 * 1000) checkUpdate(false); }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoCheck(); });
 setTimeout(autoCheck, 1500);
+setTimeout(() => fbCheck(), 1200);
 let keepOpen = null;
 function chipSet(s, k, el) { const o = sec(S.date, s), v = el.dataset.v; if (o[k] === v) delete o[k]; else o[k] = v; cleanDay(S.date); save(); }
 function copy(txt, msg) {
@@ -767,12 +796,12 @@ function copy(txt, msg) {
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast(msg), fb); else fb();
 }
 function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
-function closeSheet() { $('#sheet').hidden = true; S.sp = null; S.ed = null; TP.on = false; document.body.classList.remove('noscroll'); }
+function closeSheet() { $('#sheet').hidden = true; S.sp = null; S.ed = null; S.ci = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
 
 /* Kleines Menü bei langem Drücken: Bearbeiten, Verstecken, Löschen. Tippen daneben schließt es. */
 function openMenu(kind, id, el) {
   const it = DB.cfg[kind] && DB.cfg[kind].find(x => x.id === id); if (!it) return;
-  S.menu = { kind, id };
+  S.menu = { kind, id }; markSeen('lp');
   const b = $('#mbody');
   b.className = 'menu-body ' + AREA[kind];
   b.innerHTML = `<div class="mhead">${ic(itIc(kind, it))}<b>${esc(it.name)}</b></div>
@@ -788,6 +817,157 @@ function openMenu(kind, id, el) {
   b.style.transformOrigin = `${r.left + r.width / 2 - x}px ${y < r.top ? '100%' : '0'}`;
 }
 function closeMenu() { $('#menu').hidden = true; S.menu = null; }
+
+/* ---------- Hinweise, Erfolge, Erkenntnisse ---------- */
+function markSeen(k) { if (!DB.cfg.seen[k]) { DB.cfg.seen[k] = 1; save(); } }
+const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const FB_KEY = 'tracker-fb';
+const fbSeen = () => { try { return JSON.parse(localStorage.getItem(FB_KEY)) || {}; } catch (e) { return {}; } };
+function fbMark(d, ids) { const s = fbSeen(); s[d] = [...new Set([...(s[d] || []), ...ids])]; Object.keys(s).sort().slice(0, -21).forEach(k => delete s[k]); try { localStorage.setItem(FB_KEY, JSON.stringify(s)); } catch (e) { } }
+/* Alle Meldungen, die zu diesem Tag passen, wichtigste zuerst. a = Bereich, all = darf nach jeder Eingabe erscheinen. */
+function fbList(d) {
+  const D = day(d), isT = d === todayStr(), eve = !isT || new Date().getHours() >= 18, out = [];
+  const add = (id, a, t, p, all) => out.push({ id, a, t, p, all });
+  const cof = D.coffee || [], sp = D.sport || [], H = D.habits || {}, m = D.mood || {}, sl = D.sleep || {}, mg = coffeeMg(d), dur = sleepDur(sl), has = Object.keys(D).length > 0;
+  const last7 = Array.from({ length: 7 }, (_, i) => addDays(d, -i)), prev7 = last7.map(x => addDays(x, -7)), nn = a => a.filter(x => x != null);
+  const posV = DB.cfg.habits.filter(x => x.type === 'pos' && !x.hid), negV = DB.cfg.habits.filter(x => x.type === 'neg' && !x.hid);
+  // Koffein
+  if (eve && cof.length && cof.every(c => tmin(c.t) < 720)) add('c12', 'coffee', 'Nach 12 Uhr kein Koffein mehr. Sehr gut, dein Schlaf dankt es dir.', 3);
+  else if (eve && cof.length && cof.every(c => tmin(c.t) < 900)) add('c15', 'coffee', 'Letztes Koffein vor 15 Uhr. Gute Voraussetzung für die Nacht.', 2);
+  if (eve && mg > 50 && caffeineAt(d, 1320) < 50) add('c50', 'coffee', 'Um 22 Uhr liegst du unter 50 mg Koffein. So schläft es sich leichter.', 2);
+  if (eve && has && !cof.length) add('c0', 'coffee', 'Ein Tag ganz ohne Koffein. Respekt.', 2);
+  if (eve && mg > 0 && mg <= DB.cfg.limit / 2) add('chalf', 'coffee', 'Heute deutlich unter deinem Koffein-Limit geblieben.', 1);
+  // Sport
+  const real = sp.filter(x => !isCommute(x)), sDays = last7.filter(x => sportN(x) > 0).length;
+  if (real.length >= 2 || sp.length >= 3) add('s2', 'sport', 'Heute war ein sportlicher Tag.', 3);
+  else if (real.length) add('s1', 'sport', real[0].name + ' erledigt. Bewegung tut dir gut.', 2);
+  else if (sp.length) add('sc', 'sport', 'Den Weg aus eigener Kraft gemacht. Auch das zählt.', 1);
+  if (sp.length && sDays >= 4) add('s4', 'sport', sDays + ' aktive Tage in den letzten 7. Du bist richtig gut dabei.', 3);
+  if (sp.length && allDates()[0] < addDays(d, -3) && [1, 2, 3].every(i => !sportN(addDays(d, -i)))) add('sback', 'sport', 'Nach ein paar Tagen Pause wieder bewegt. Der Wiedereinstieg ist das Schwerste.', 3);
+  // Gewohnheiten
+  if (posV.length && posV.every(x => H[x.id])) add('hall', 'habit', 'Alle positiven Gewohnheiten geschafft. Starker Tag.', 4);
+  posV.forEach(x => { const n = H[x.id] ? streak(x, d) : 0; if ([3, 7, 14, 21, 30, 50, 100].includes(n)) add('hs' + x.id + n, 'habit', `${n} Tage in Folge: ${x.name}. Das wird zur Gewohnheit.`, 4); });
+  if (eve && has && negV.length && negV.every(x => !H[x.id])) add('hneg', 'habit', 'Heute keine einzige negative Gewohnheit. Das darf man feiern.', 2);
+  negV.forEach(x => { const n = eve && !H[x.id] ? streak(x, d) : 0; if ([3, 7, 14, 30].includes(n)) add('hn' + x.id + n, 'habit', `${n} Tage ohne „${x.name}“. Weiter so.`, 3); });
+  // Schlaf
+  if (dur != null && dur >= 420 && dur <= 540) add('sl7', 'sleep', fmtDur(dur) + ' geschlafen. Genau im guten Bereich.', 2);
+  if (sl.q >= 4) add('slq', 'sleep', 'Gut erholt aufgewacht. Schöner Start in den Tag.', 2);
+  const ss = sl.bed ? sleepStats(last7) : null;
+  if (ss && ss.n >= 5 && Math.max(ss.bedSD, ss.wakeSD) < 45) add('slr', 'sleep', 'Dein Schlafrhythmus war in den letzten Tagen sehr regelmäßig.', 3);
+  const dA = nn(last7.map(x => sleepDur(day(x).sleep))), dB = nn(prev7.map(x => sleepDur(day(x).sleep)));
+  if (dur != null && dA.length >= 3 && dB.length >= 3 && avg(dA) - avg(dB) >= 30 && avg(dB) < 450) add('slup', 'sleep', `Du schläfst gerade im Schnitt ${Math.round(avg(dA) - avg(dB))} Minuten länger als in der Woche davor.`, 3);
+  // Stimmung
+  const ml = moodSorted(m), mA = nn(last7.map(x => day(x).mood?.v)), mB = nn(prev7.map(x => day(x).mood?.v));
+  if (m.v >= 4) add('m4', 'mood', 'Heute geht es dir richtig gut. Halt kurz fest, woran es liegt.', 2);
+  if (ml.length >= 2 && ml[ml.length - 1].v - ml[0].v >= 1) add('mup', 'mood', 'Deine Stimmung ist im Lauf des Tages gestiegen.', 2);
+  if (m.v && mA.length >= 3 && mB.length >= 3 && avg(mA) - avg(mB) >= .3) add('mwk', 'mood', 'Deine Stimmung liegt gerade höher als in der Woche davor.', 3);
+  if (m.note || m.qa) add('mnote', 'mood', 'Schön, dass du dir Zeit für ein paar Worte genommen hast.', 1);
+  if (m.v && mA.length >= 2 && avg(mA.slice(0, 3)) <= 2.6) {
+    let good = null;
+    for (let i = 1; i <= 14 && !good; i++) { const x = addDays(d, -i), M = day(x).mood; if (M && M.v >= 4) { const t = (M.qa && M.qa[0] && M.qa[0].a) || M.note || day(x).note; good = { x, t }; } }
+    const wb = (DB.weeks[addDays(weekStart(d), -7)] || {}).best, cut = t => t.length > 70 ? t.slice(0, 68).trim() + '…' : t;
+    add('mlow', 'mood', 'Auch wenn die Tage gerade nicht so gut laufen: ' + (good && good.t ? `Erinner dich an ${WDL[parse(good.x).getDay()]}: „${cut(good.t)}“` : wb ? `Erinner dich an letzte Woche: „${cut(wb)}“` : good ? `Am ${WDL[parse(good.x).getDay()]} ging es dir richtig gut. Solche Tage kommen wieder.` : 'Solche Phasen gehen vorbei. Dass du trotzdem einträgst, zählt.'), 5);
+  }
+  // Allgemein
+  if (['mood', 'sleep', 'coffee', 'sport', 'habits'].every(k => D[k])) add('all5', 'habit', 'Alle fünf Bereiche heute eingetragen. Volles Bild.', 3, 1);
+  let run = 0; for (let x = d; Object.keys(day(x)).length; x = addDays(x, -1)) run++;
+  if ([3, 7, 14, 30, 60, 100, 200, 365].includes(run)) add('run' + run, 'mood', run + ' Tage in Folge eingetragen. Du bleibst dran.', 4, 1);
+  if (has && allDates().length === 1) add('first', 'mood', 'Erster Tag eingetragen. Ab jetzt lernt die App dich kennen.', 4, 1);
+  return out.sort((a, b) => b.p - a.p);
+}
+function fbShow(m) {
+  const b = $('#fb'); b.className = 'a-' + m.a; b.innerHTML = `<div class="tile on-g">${tile(m.a)}</div><span>${esc(m.t)}</span>`;
+  b.hidden = true; void b.offsetWidth; b.hidden = false;
+  if (m.id === 'all5') document.querySelectorAll('#app .card .tile').forEach(t => { t.classList.remove('goal'); void t.offsetWidth; t.classList.add('goal'); });
+  clearTimeout(fbShow.t); fbShow.t = setTimeout(fbHide, 6500);
+}
+function fbHide() { $('#fb').hidden = true; }
+/* Nach einer Eingabe: eine noch nicht gezeigte Meldung aus dem Bereich. Ohne Bereich (App geöffnet): die wichtigste. Nur für heute. */
+function fbCheck(area) {
+  const d = todayStr(); if (S.date !== d || S.ci || S.wr || S.tab !== 'heute') return;
+  const seen = fbSeen()[d] || [], m = fbList(d).find(x => !seen.includes(x.id) && (!area || x.a === area || x.all));
+  if (m) { fbMark(d, [m.id]); fbShow(m); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') setTimeout(() => fbCheck(), 600); });
+/* Erkenntnis: ein Vergleich aus den eigenen Daten, erst ab genug Tagen und nur bei spürbarem Unterschied */
+function insights() {
+  const ds_ = allDates(), md = ds_.filter(d => day(d).mood?.v), out = [], mv = d => day(d).mood.v, df = x => f1(Math.abs(x));
+  const cmp = (a, b, min, txt) => { if (a.length >= min && b.length >= min) { const x = avg(a) - avg(b); if (Math.abs(x) >= .2) out.push(txt(x)); } };
+  cmp(md.filter(d => sportN(d)).map(mv), md.filter(d => !sportN(d)).map(mv), 3, x => `An Tagen mit Sport ist deine Stimmung im Schnitt ${df(x)} Punkte ${x > 0 ? 'höher' : 'niedriger'} als ohne.`);
+  const sd = md.filter(d => sleepDur(day(d).sleep) != null), long = d => sleepDur(day(d).sleep) >= 420;
+  cmp(sd.filter(long).map(mv), sd.filter(d => !long(d)).map(mv), 3, x => `Nach mindestens 7 Stunden Schlaf ist deine Stimmung im Schnitt ${df(x)} Punkte ${x > 0 ? 'höher' : 'niedriger'} als nach kürzeren Nächten.`);
+  const q = ds_.filter(d => day(d).sleep?.q && Object.keys(day(addDays(d, -1))).length), late = d => (day(addDays(d, -1)).coffee || []).some(c => tmin(c.t) >= 840), qv = d => day(d).sleep.q;
+  cmp(q.filter(d => !late(d)).map(qv), q.filter(late).map(qv), 3, x => `Ohne Koffein nach 14 Uhr wachst du im Schnitt ${df(x)} Punkte ${x > 0 ? 'erholter' : 'weniger erholt'} auf.`);
+  DB.cfg.habits.forEach(h => { const on = d => (day(d).habits || {})[h.id]; cmp(md.filter(on).map(mv), md.filter(d => !on(d)).map(mv), 4, x => `An Tagen mit „${h.name}“ ist deine Stimmung im Schnitt ${df(x)} Punkte ${x > 0 ? 'höher' : 'niedriger'}.`); });
+  if (md.length >= 14) { const g = {}; md.forEach(d => (g[parse(d).getDay()] || (g[parse(d).getDay()] = [])).push(mv(d))); const b = Object.entries(g).filter(e => e[1].length >= 2).sort((x, y) => avg(y[1]) - avg(x[1]))[0]; if (b) out.push(`${WDL[b[0]]} ist bisher dein bester Wochentag (Stimmung Ø ${f1(avg(b[1]))}).`); }
+  return out;
+}
+const insightFor = d => { const a = insights(); return a.length ? a[dn(d) % a.length] : null; };
+const insBox = d => { const t = insightFor(d); return `<div class="note"><small>Erkenntnis aus deinen Daten</small>${t ? esc(t) : 'Sobald etwa eine Woche zusammen ist, steht hier ein Zusammenhang aus deinen eigenen Einträgen.'}</div>`; };
+
+/* ---------- Abend-Check-in: eine Frage pro Schritt ---------- */
+const CI_N = 5;
+function ciSheet() {
+  const d = S.date, D = day(d), i = S.ci.step, isT = d === todayStr(), m = D.mood || {}, H = D.habits || {}, sp = D.sport || [], chk = gl('check', 'chk');
+  if (i >= CI_N) {
+    const L = fbList(d).filter((x, k, arr) => arr.findIndex(y => y.a === x.a) === k).slice(0, 3); if (isT) fbMark(d, L.map(x => x.id));
+    return `<div class="ci-done a-habit"><div class="tile on-g goal">${tile('habit')}</div><h3>Geschafft</h3><span class="mut">${isT ? 'Dein Tag ist eingetragen.' : 'Der Tag ist eingetragen.'}</span></div>
+      ${L.map(x => `<div class="fbrow a-${x.a}"><div class="tile on-g">${tile(x.a)}</div><span>${esc(x.t)}</span></div>`).join('')}
+      ${insBox(d)}<div class="row ci-nav"><button class="btn pri grow" data-act="sclose">Schließen</button></div>`;
+  }
+  const top = `<div class="ci-top"><span>Check-in · ${i + 1} von ${CI_N}</span><div class="bar"><i style="width:${(i + 1) / CI_N * 100}%"></i></div></div>`;
+  const nav = `<div class="row ci-nav">${i ? '<button class="btn" data-act="ciprev">Zurück</button>' : ''}<button class="btn pri grow" data-act="cinext">${i === CI_N - 1 ? 'Fertig' : 'Weiter'}</button></div>`;
+  let b = '';
+  if (i === 0) {
+    const a = moodAct(m), l = moodSorted(m), v = a ? a.v : l.length ? l[l.length - 1].v : 3, n = Math.round(v);
+    b = `<div class="a-mood"><h3>Wie geht es dir ${isT ? 'gerade' : 'an diesem Tag'}?</h3><div class="moodbox ${a ? '' : 'unset'}"><div class="moodtop"><span class="moodemo">${face(n)}</span><span class="grow mlab">${a ? MOOD_N[n - 1] + ' · ' + f1(v) : 'Regler schieben'}</span></div>
+      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${v}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>${l.length && !a ? `<small class="hint">Heute schon eingetragen: ${l.map(x => f1(x.v)).join(', ')}. Schieben legt einen weiteren Eintrag an, sonst einfach weiter.</small>` : ''}</div>`;
+  } else if (i === 1) {
+    b = `<div class="a-mood"><h3>Welche Gefühle passen dazu?</h3><div class="chips">${TAGS.map(t => { const on = (m.tags || []).includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${t}" aria-pressed="${on}"><span>${t}</span>${on ? chk : ''}</button>`; }).join('')}</div></div>`;
+  } else if (i === 2) {
+    const g = type => { const v = DB.cfg.habits.filter(h => h.type === type && (!h.hid || H[h.id])); return v.length ? `<div class="hgrid">${v.map(h => `<button class="hab ${h.type} ${H[h.id] ? 'on on-g' : ''}" data-act="hab" data-id="${h.id}" aria-pressed="${!!H[h.id]}">${ic(itIc('habits', h))}<span>${esc(h.name)}</span>${H[h.id] ? chk : ''}</button>`).join('')}</div>` : ''; };
+    b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}</div>`;
+  } else if (i === 3) {
+    b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="chips">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="chip ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
+  } else {
+    const q = QS[(S.qi[d] ?? (parse(d).getTime() / 864e5 | 0)) % QS.length], qa = (m.qa && m.qa[0]) || {};
+    b = `<div class="a-mood"><h3>${esc(q)}</h3><textarea data-f="mood.qa" data-q="${esc(q)}" placeholder="Ein Satz reicht. Oder leer lassen.">${esc(qa.a || '')}</textarea></div>`;
+  }
+  return top + b + nav;
+}
+
+/* ---------- Wochenrückblick ---------- */
+function wrDue() {
+  const t = todayStr(), wd = parse(t).getDay(), w = wd === 0 && new Date().getHours() >= 12 ? weekStart(t) : (wd === 1 || wd === 2) ? addDays(weekStart(t), -7) : null;
+  if (!w || (DB.weeks[w] || {}).done) return null;
+  return Array.from({ length: 7 }, (_, i) => addDays(w, i)).some(x => Object.keys(day(x)).length) ? w : null;
+}
+function wrSheet() {
+  const { w, step: i } = S.wr, o = DB.weeks[w] || {}, dates = Array.from({ length: 7 }, (_, k) => addDays(w, k));
+  const top = `<div class="ci-top"><span>Wochenrückblick KW ${isoWeek(w)} · ${i + 1} von 3</span><div class="bar"><i style="width:${(i + 1) / 3 * 100}%"></i></div></div>`;
+  const nav = `<div class="row ci-nav">${i ? '<button class="btn" data-act="wrprev">Zurück</button>' : ''}<button class="btn pri grow" data-act="wrnext">${i === 2 ? 'Fertig' : 'Weiter'}</button></div>`;
+  let b;
+  if (i === 0) {
+    const a = wstats(dates), p = wstats(dates.map(x => addDays(x, -7))), plan = (DB.weeks[addDays(w, -7)] || {}).plan;
+    const dl = (x, y, u, fx = f1) => x == null || y == null || Math.abs(x - y) < .05 ? '' : ` <small>${x > y ? '+' : '−'}${fx(Math.abs(x - y))}${u}</small>`, r0 = v => Math.round(v);
+    const hp = DB.cfg.habits.filter(h => h.type === 'pos').reduce((n, h) => n + dates.filter(d => (day(d).habits || {})[h.id]).length, 0);
+    b = `<div class="a-sleep"><h3>Deine Woche in Zahlen</h3>
+      <div class="kv"><span>Stimmung</span><span>${a.moodAvg == null ? '–' : 'Ø ' + f1(a.moodAvg)}${dl(a.moodAvg, p.moodAvg, '')}</span></div>
+      <div class="kv"><span>Schlaf</span><span>${a.durAvg == null ? '–' : 'Ø ' + fmtDur(a.durAvg)}${dl(a.durAvg, p.durAvg, ' min', r0)}</span></div>
+      <div class="kv"><span>Koffein</span><span>${a.cofAvg == null ? '–' : 'Ø ' + r0(a.cofAvg) + ' mg'}${dl(a.cofAvg, p.cofAvg, ' mg', r0)}</span></div>
+      <div class="kv"><span>Sport</span><span>${a.sportN}× an ${a.sportDays} ${a.sportDays === 1 ? 'Tag' : 'Tagen'}${dl(a.sportN, p.sportN, '', r0)}</span></div>
+      <div class="kv"><span>Positive Gewohnheiten</span><span>${hp} Haken</span></div>
+      <small class="hint">Kleine Zahl: Unterschied zur Vorwoche. ${a.tr} von 7 Tagen mit Einträgen.</small>
+      ${plan ? `<div class="note"><small>Dein Vorsatz für diese Woche war</small>${esc(plan)}</div>` : ''}${insBox(w)}</div>`;
+  } else if (i === 1) {
+    b = `<div class="a-mood"><h3>Wie war die Woche insgesamt?</h3><div class="smileys">${MOOD_N.map((n, k) => { const on = o.v === k + 1; return `<button class="sm ${on ? 'on' : ''}" data-act="wrrate" data-v="${k + 1}" aria-label="${n}" aria-pressed="${on}">${face(k + 1)}${on ? `<i class="badge">${gl('check')}</i>` : ''}</button>`; }).join('')}</div>
+      <div class="lbl">Was war der schönste Moment?</div><textarea data-wr="best" placeholder="Daran erinnere ich dich, wenn es mal nicht so läuft.">${esc(o.best || '')}</textarea></div>`;
+  } else {
+    b = `<div class="a-habit"><h3>Blick nach vorn</h3><div class="lbl" style="margin-top:0">Was war schwierig?</div><textarea data-wr="hard" placeholder="Kurz, oder leer lassen.">${esc(o.hard || '')}</textarea>
+      <div class="lbl">Was nimmst du dir für die nächste Woche vor?</div><textarea data-wr="plan" placeholder="Eine Sache reicht.">${esc(o.plan || '')}</textarea></div>`;
+  }
+  return top + b + nav;
+}
 
 /* ---------- Zeitrad (5-Minuten-Schritte) ---------- */
 const TPI = 40, TP = { on: false };
@@ -864,7 +1044,7 @@ function doImport(mode) {
   if (!j || typeof j.days !== 'object') { S.impMsg = 'Kein Tracker-Format (es fehlt „days“).'; return; }
   const bad = Object.keys(j.days).filter(k => !/^\d{4}-\d{2}-\d{2}$/.test(k));
   if (bad.length) { S.impMsg = 'Ungültiges Datum: ' + bad[0]; return; }
-  if (mode === 'replace') { DB = norm({ v: 1, days: j.days, cfg: j.cfg }); }
+  if (mode === 'replace') { DB = norm({ v: 1, days: j.days, cfg: j.cfg, weeks: j.weeks }); }
   else {
     let n = 0;
     for (const [d, X] of Object.entries(j.days)) {
@@ -875,9 +1055,11 @@ function doImport(mode) {
         else if (k === 'habits') T.habits = Object.assign(T.habits || {}, v);
         else if (k === 'coffee' || k === 'sport') { T[k] = T[k] || []; (v || []).forEach(e => { e.id = e.id || uid(); if (!T[k].some(x => x.id === e.id)) T[k].push(e); }); }
         else if (k === 'note') T.note = v;
+        else if (k === 'ci') T.ci = v;
       }
       if (T.sleep && T.sleep.bed && T.sleep.wake) T.sleep.dur = sleepDur(T.sleep);
     }
+    if (j.weeks && typeof j.weeks === 'object') Object.assign(DB.weeks, j.weeks);
     if (j.cfg && j.v === 1) { /* Einstellungen bei „Zusammenführen“ bewusst unverändert */ }
     S.impMsg = `${n} ${n === 1 ? 'Tag' : 'Tage'} übernommen.`;
   }
@@ -897,7 +1079,7 @@ function cgAt(svg, e) {
   $('#cg-lab').textContent = `Um ${clockM(t)} Uhr${t >= 1440 ? ' (Folgetag)' : ''} noch im Körper`; $('#cg-val').textContent = '≈ ' + Math.round(v) + ' mg';
 }
 function cgEnd() {
-  if (!CG) return; const svg = CG; CG = null;
+  if (!CG) return; const svg = CG; CG = null; markSeen('cg');
   if (!svg.isConnected) return;
   $('#cg-g', svg).setAttribute('display', 'none'); $('#cg-lab').textContent = 'Um 22 Uhr noch im Körper'; $('#cg-val').textContent = '≈ ' + svg.dataset.bed + ' mg';
 }
@@ -922,10 +1104,12 @@ function moodCommit(t) {
   const o = sec(S.date, 'mood'); let e = moodAct(o);
   if (!o.log) o.log = moodLog(o);
   if (e) e = o.log.find(x => x.id === e.id);
-  if (!e) { e = { id: uid(), t: S.date === todayStr() ? nowT() : '', v }; o.log.push(e); }
+  if (!e) { e = { id: uid(), t: S.date === todayStr() ? nowT() : '', v }; o.log.push(e); if (o.log.length > 2) markSeen('mood'); }
   e.v = v; S.ma = { id: e.id, d: S.date, at: Date.now() };
   moodSync(o); save(); render();
+  if (S.ci) $('#sbody').innerHTML = ciSheet(); else fbCheck('mood');
 }
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button][data-act]')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('click', e => {
   if (LP.fired) { LP.fired = false; e.preventDefault(); return; }
   if (e.target.dataset && e.target.dataset.rng === 'mood') { moodCommit(e.target); return; }
@@ -939,6 +1123,8 @@ document.addEventListener('click', e => {
     render();
     document.querySelectorAll('details summary').forEach(s => { if (open.includes(s.textContent.trim()) || (keepOpen && s.textContent.trim().toLowerCase().startsWith({ coffee: 'koffein', sports: 'sportarten', habits: 'gewohnheiten' }[keepOpen] || '#'))) s.parentElement.open = true; });
     keepOpen = null;
+    if (S.ci) $('#sbody').innerHTML = ciSheet();
+    else { const fa = { hab: 'habit', sadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
     if (['hab', 'sadd', 'cadd', 'csize', 'srate', 'tag', 'sfall', 'swakes', 'smorning'].includes(act) && key) { const n = document.querySelector(`#app .on[data-id="${CSS.escape(key)}"], #app .on[data-v="${CSS.escape(key)}"]`); if (n) n.classList.add('pop'); }
     if (act === 'hab' && !goalBefore && habGoal()) { const t = $('.a-habit .tile'); if (t) t.classList.add('goal'); }
     if (act === 'tab' || act === 'dprev' || act === 'dnext' || act === 'dtoday') { const a = $('#app'); a.classList.remove('enter'); void a.offsetWidth; a.classList.add('enter'); }
@@ -965,7 +1151,8 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
-  if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v); if ($('#mood-e').dataset.n !== String(i)) { $('#mood-e').innerHTML = face(i); $('#mood-e').dataset.n = i; } $('#mood-l').textContent = MOOD_N[i - 1] + ' · ' + f1(v); t.closest('.moodbox').classList.remove('unset', 'idle'); }
+  if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v), bx = t.closest('.moodbox'), fe = $('.moodemo', bx); if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; } $('.mlab', bx).textContent = MOOD_N[i - 1] + ' · ' + f1(v); bx.classList.remove('unset', 'idle'); }
+  if (t.dataset.wr && S.wr) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}); if (t.value.trim()) o[t.dataset.wr] = t.value; else delete o[t.dataset.wr]; save(); }
   if (t.dataset.ed && S.ed) S.ed.d[t.dataset.ed] = t.type === 'number' ? Number(t.value) : t.value;
   if (t.dataset.edsz && S.ed && S.ed.d.sizes) { const z = S.ed.d.sizes[+t.dataset.edsz]; if (z) z[t.dataset.p] = t.type === 'number' ? Number(t.value) : t.value; }
 });
