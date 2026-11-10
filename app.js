@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.0';
+const VERSION = '2.1';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -153,6 +153,11 @@ async function syncNow(manual) {
 function syncSoon() { if (!syncCfg().url) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 20000); }
 window.addEventListener('online', () => { if (syncCfg().pending) syncNow(false); });
 window.addEventListener('pagehide', () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { } });
+/* Stimmung: mehrere Einträge pro Tag in mood.log [{id,t,v}]; mood.v ist der Tagesschnitt (für Verlauf und Muster). Ältere Tage haben nur mood.v. */
+const moodLog = m => !m ? [] : m.log ? m.log : m.v ? [{ id: 'alt', t: '', v: m.v }] : [];
+const moodSorted = m => moodLog(m).slice().sort((a, b) => (a.t || '').localeCompare(b.t || ''));
+function moodSync(m) { const l = m.log || []; if (l.length) m.v = Math.round(avg(l.map(x => x.v)) * 10) / 10; else { delete m.v; delete m.log; } }
+function moodAct(m) { const a = S.ma; if (!a || a.d !== S.date || Date.now() - a.at > 6e5) return null; return moodLog(m).find(x => x.id === a.id) || null; }
 const day = (d, create) => DB.days[d] || (create ? (DB.days[d] = {}) : {});
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
 
@@ -322,11 +327,12 @@ function viewHeute() {
   const cr = rankItems(cVis, 'coffee', d), sr = rankItems(sVis, 'sport', d);
   const when = isToday ? 'Oft um diese Zeit' : 'Oft an diesem Wochentag';
   const cN = c => cof.filter(e => e.k === c.id).length, sN = x => sp.filter(e => e.name === x.name).length;
-  const cChip = c => { const n = cN(c); return `<button class="chip ${n ? 'on on-g' : ''} ${c.hid ? 'hidc' : ''}" data-act="cadd" data-id="${c.id}" data-lp="coffee|${c.id}">${ic(itIc('coffee', c))}<span>${esc(c.name)}</span><small>${c.est ? '≈' : ''}${c.mg}</small>${n ? mark(n) : c.sizes && c.sizes.length > 1 ? gl('down', 'sz') : ''}</button>`; };
+  const cChip = c => { const n = cN(c); return `<button class="cti ${n ? 'on on-g' : ''} ${c.hid ? 'hidc' : ''}" data-act="cadd" data-id="${c.id}" data-lp="coffee|${c.id}">${ic(itIc('coffee', c))}<span>${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg}</small></span>${n ? mark(n) : ''}</button>`; };
   const sChip = x => { const n = sN(x); return `<button class="chip ${n ? 'on on-g' : ''} ${x.hid ? 'hidc' : ''}" data-act="sadd" data-id="${x.id}" data-lp="sports|${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${x.km ? `<small>≈${esc(x.km)} km</small>` : ''}${mark(n)}</button>`; };
   const newChip = kind => `<button class="chip new" data-act="edit" data-kind="${kind}" data-id="_new">${gl('plus')}<span>Neu</span></button>`;
-  const hidBlock = (k, items, chip) => items.length ? `<button class="morehid" data-act="tog" data-k="${k}">${S.open[k] ? 'weniger' : `weitere (${items.length})`}${arrow(S.open[k])}</button>${S.open[k] ? `<div class="chips">${items.map(x => chip(x)).join('')}</div>` : ''}` : '';
-  const mv = m.v, mi = mv ? Math.round(mv) : 0;
+  const hidBlock = (k, items, chip, cls = 'chips') => items.length ? `<button class="morehid" data-act="tog" data-k="${k}">${S.open[k] ? 'weniger' : `weitere (${items.length})`}${arrow(S.open[k])}</button>${S.open[k] ? `<div class="${cls}">${items.map(x => chip(x)).join('')}</div>` : ''}` : '';
+  const mlog = moodSorted(m), mact = moodAct(m), mv = mact ? mact.v : m.v, mi = mv ? Math.round(mv) : 0;
+  const mlab = mact ? `${mact.t ? mact.t + ' Uhr · ' : ''}${MOOD_N[mi - 1]} · ${f1(mact.v)}` : mlog.length > 1 ? `Ø ${MOOD_N[mi - 1]} · ${f1(mv)}` : mlog.length ? `${MOOD_N[mi - 1]} · ${f1(mv)}` : 'Regler schieben zum Eintragen';
   const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">${gl('redo')}<span>${l}</span><small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   const posVis = DB.cfg.habits.filter(h => h.type === 'pos' && !h.hid), posDone = posVis.filter(hOn).length;
@@ -335,8 +341,10 @@ function viewHeute() {
   <header class="dhead day"><div class="row"><span class="grow">${isToday ? 'Heute' : `<a href="#" data-act="dtoday">Zu heute</a>`}</span><button data-act="dprev" aria-label="Tag zurück">${gl('left')}</button><button data-act="dnext" aria-label="Tag vor" ${isToday ? 'disabled' : ''}>${gl('right')}</button></div><h1>${esc(label)}</h1></header>
 
   <section class="card a-mood">${chead('mood', 'Stimmung')}
-    <div class="moodbox ${mv ? '' : 'unset'}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow" id="mood-l">${mv ? MOOD_N[mi - 1] + ' · ' + f1(mv) : 'Regler schieben zum Eintragen'}</span>${mv ? `<button class="x" data-act="moodclr" aria-label="Stimmung löschen">${gl('close')}</button>` : ''}</div>
-      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${mv || 3}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>
+    <div class="moodbox ${mv ? '' : 'unset'} ${mlog.length && !mact ? 'idle' : ''}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow" id="mood-l">${mlab}</span></div>
+      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${mact ? mact.v : mlog.length ? mlog[mlog.length - 1].v : 3}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>
+    ${mlog.length ? `<div class="mlog">${mlog.map(x => { const on = mact && mact.id === x.id, i = Math.round(x.v); return `<div class="ent ${on ? 'act' : ''}"><button class="timebtn t" data-act="tpick" data-t="mood" data-id="${x.id}">${x.t || '–:–'}</button><button class="grow msel" data-act="msel" data-id="${x.id}" aria-pressed="${!!on}">${face(i, 'sm')}<span>${MOOD_N[i - 1]} · ${f1(x.v)}</span></button><button class="x" data-act="mdel" data-id="${x.id}" aria-label="Stimmung löschen">${gl('close')}</button></div>`; }).join('')}</div>
+      ${mact ? `<div class="chips sub"><button class="chip new" data-act="mnew">${gl('plus')}<span>Weitere Stimmung</span></button></div>` : `<small class="hint">Regler schieben: weitere Stimmung eintragen. Eintrag antippen: ändern.</small>`}` : ''}
     <button class="more" data-act="tog" data-k="mood" aria-expanded="${!!moodOpen}"><span>${moodOpen ? 'Weniger' : 'Mehr dazu: Gefühle, Frage, Notiz'}${!moodOpen && (m.tags?.length || qa.a || m.note) ? dot : ''}</span>${arrow(moodOpen)}</button>
     ${moodOpen ? `
       <div class="lbl">Gefühle</div>
@@ -367,10 +375,10 @@ function viewHeute() {
   <section class="card a-coffee">${chead('coffee', 'Koffein', `${mg} / ${lim} mg`)}
     <div class="bar ${mg > lim ? 'warn' : ''}"><i style="width:${Math.min(100, mg / lim * 100)}%"></i></div>
     <small>${lastC ? 'Letzter Eintrag ' + lastC + ' Uhr' : 'Noch nichts eingetragen'}${mg > lim ? ' · über deinem Limit' : ''}</small>
-    ${cr.top.length ? `<div class="lbl">${when}</div><div class="chips">${cr.top.map(c => cChip(c)).join('')}</div>` : ''}
+    ${cr.top.length ? `<div class="lbl">${when}</div><div class="cgrid">${cr.top.map(c => cChip(c)).join('')}</div>` : ''}
     ${copyBtns('coffee')}
     ${cr.top.length ? `<button class="more" data-act="tog" data-k="cmore" aria-expanded="${!!S.open.cmore}"><span>${S.open.cmore ? 'Weniger Getränke' : `Weitere Getränke (${cr.rest.length})`}</span>${arrow(S.open.cmore)}</button>` : ''}
-    ${(!cr.top.length || S.open.cmore) ? `<div class="chips sub">${cr.rest.map(c => cChip(c)).join('')}${newChip('coffee')}</div>${hidBlock('chid', cHid, cChip)}<small class="hint">Lange drücken: bearbeiten, Größen, verstecken, löschen</small>` : ''}
+    ${(!cr.top.length || S.open.cmore) ? `<div class="cgrid sub">${cr.rest.map(c => cChip(c)).join('')}<button class="cti new" data-act="edit" data-kind="coffee" data-id="_new">${gl('plus')}<span>Neu</span></button></div>${hidBlock('chid', cHid, cChip, 'cgrid')}<small class="hint">Lange drücken: bearbeiten, Größen, verstecken, löschen</small>` : ''}
     ${cof.map(c => `<div class="ent"><button class="timebtn t" data-act="tpick" data-t="coffee" data-id="${c.id}">${c.t}</button><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${caffeineBlock(d)}
   </section>
@@ -614,7 +622,21 @@ const A = {
   dnext() { if (S.date < todayStr()) S.date = addDays(S.date, 1); },
   dtoday() { S.date = todayStr(); },
   tog(el) { S.open[el.dataset.k] = !S.open[el.dataset.k]; },
-  moodclr() { const o = sec(S.date, 'mood'); delete o.v; cleanDay(S.date); save(); },
+  msel(el) { const on = S.ma && S.ma.id === el.dataset.id && moodAct(day(S.date).mood); S.ma = on ? null : { id: el.dataset.id, d: S.date, at: Date.now() }; },
+  mnew() { S.ma = null; toast('Regler schieben für die nächste Stimmung'); },
+  mdel(el) { const o = sec(S.date, 'mood'); o.log = moodLog(o).filter(x => x.id !== el.dataset.id); if (S.ma && S.ma.id === el.dataset.id) S.ma = null; moodSync(o); cleanDay(S.date); save(); },
+  mclose() { closeMenu(); return 'noRender'; },
+  medit() { const m = S.menu; closeMenu(); if (m) openEdit(m.kind, m.id); return 'noRender'; },
+  mhide() {
+    const m = S.menu, it = m && DB.cfg[m.kind].find(x => x.id === m.id); closeMenu(); if (!it) return 'noRender';
+    if (it.hid) delete it.hid; else it.hid = true;
+    save(); toast(it.hid ? 'Versteckt, steht jetzt unter „weitere“' : 'Wieder eingeblendet');
+  },
+  mrm(el) {
+    if (!el.dataset.sure) { el.dataset.sure = 1; el.querySelector('span').textContent = 'Wirklich? Nochmal tippen'; return 'noRender'; }
+    const m = S.menu; closeMenu(); if (!m) return 'noRender';
+    DB.cfg[m.kind] = DB.cfg[m.kind].filter(x => x.id !== m.id); save(); toast('Gelöscht');
+  },
   srate(el) { const o = sec(S.date, 'sleep'), v = +el.dataset.v; if (o.q === v) delete o.q; else o.q = v; cleanDay(S.date); save(); },
   tag(el) { const o = sec(S.date, 'mood'), t = el.dataset.v, a = o.tags || (o.tags = []); const i = a.indexOf(t); if (i >= 0) a.splice(i, 1); else a.push(t); if (!a.length) delete o.tags; cleanDay(S.date); save(); },
   qnext() { const cur = S.qi[S.date] ?? (parse(S.date).getTime() / 864e5 | 0); S.qi[S.date] = (cur + 1) % QS.length; },
@@ -669,6 +691,9 @@ const A = {
     if (t === 'sleep.bed' || t === 'sleep.wake') {
       const k = t.split('.')[1];
       openTime({ title: k === 'bed' ? 'Ins Bett' : 'Aufgewacht', orig: (day(S.date).sleep || {})[k] || '', def: k === 'bed' ? '23:00' : '07:00', canClear: true, apply: v => setField(t, v) });
+    } else if (t === 'mood') {
+      const o = sec(S.date, 'mood'), id = el.dataset.id, x = moodLog(o).find(y => y.id === id); if (!x) { cleanDay(S.date); return 'noRender'; }
+      openTime({ title: 'Uhrzeit · Stimmung', orig: x.t, def: nowT(), canClear: false, apply: v => { if (v) { if (!o.log) o.log = moodLog(o); o.log.find(y => y.id === id).t = v; save(); } } });
     } else if (t === 'coffee') {
       const c = sec(S.date, 'coffee').find(x => x.id === el.dataset.id); if (!c) return 'noRender';
       openTime({ title: 'Uhrzeit · ' + c.name, orig: c.t, def: nowT(), canClear: false, apply: v => { if (v) { c.t = v; save(); } } });
@@ -691,7 +716,7 @@ const A = {
   copyweek() {
     const dates = Array.from({ length: 14 }, (_, i) => addDays(S.week, i - 7)), days = {};
     dates.forEach(d => { if (d < addDays(S.week, 7) && Object.keys(day(d)).length) days[d] = day(d); });
-    const txt = `Hier sind meine Tracker-Daten für KW ${isoWeek(S.week)} (${S.week} bis ${addDays(S.week, 6)}) plus die Vorwoche zum Vergleich. Bitte werte aus: Muster zwischen Schlaf, Stimmung, Koffein (Koffein-Limit ${DB.cfg.limit} mg, Halbwertszeit ${DB.cfg.halfLife || 5} h), Sport und Gewohnheiten; was lief gut, was könnte ich ändern. Schlaf zählt zum Tag des Aufwachens. mood.v 1 bis 5 (5 am besten), sleep.q Erholung 1 bis 5. Bitte vorsichtig mit Schlüssen bei wenigen Tagen.\n\n` + JSON.stringify({ tracker: 1, days });
+    const txt = `Hier sind meine Tracker-Daten für KW ${isoWeek(S.week)} (${S.week} bis ${addDays(S.week, 6)}) plus die Vorwoche zum Vergleich. Bitte werte aus: Muster zwischen Schlaf, Stimmung, Koffein (Koffein-Limit ${DB.cfg.limit} mg, Halbwertszeit ${DB.cfg.halfLife || 5} h), Sport und Gewohnheiten; was lief gut, was könnte ich ändern. Schlaf zählt zum Tag des Aufwachens. mood.v 1 bis 5 (5 am besten, Tagesschnitt; mood.log sind die einzelnen Einträge mit Uhrzeit), sleep.q Erholung 1 bis 5. Bitte vorsichtig mit Schlüssen bei wenigen Tagen.\n\n` + JSON.stringify({ tracker: 1, days });
     copy(txt, 'Woche kopiert, jetzt im Chat einfügen'); return 'noRender';
   },
   vtab(el) { S.vtab = el.dataset.v; },
@@ -740,6 +765,26 @@ function copy(txt, msg) {
 }
 function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
 function closeSheet() { $('#sheet').hidden = true; S.sp = null; S.ed = null; TP.on = false; document.body.classList.remove('noscroll'); }
+
+/* Kleines Menü bei langem Drücken: Bearbeiten, Verstecken, Löschen. Tippen daneben schließt es. */
+function openMenu(kind, id, el) {
+  const it = DB.cfg[kind] && DB.cfg[kind].find(x => x.id === id); if (!it) return;
+  S.menu = { kind, id };
+  const b = $('#mbody');
+  b.className = 'menu-body ' + AREA[kind];
+  b.innerHTML = `<div class="mhead">${ic(itIc(kind, it))}<b>${esc(it.name)}</b></div>
+    <button class="mitem" role="menuitem" data-act="mhide">${gl(it.hid ? 'eye' : 'hide')}<span>${it.hid ? 'Wieder einblenden' : 'Verstecken'}</span></button>
+    <button class="mitem danger" role="menuitem" data-act="mrm">${gl('trash')}<span>Löschen</span></button>
+    <button class="mitem" role="menuitem" data-act="medit">${gl('edit')}<span>Bearbeiten</span></button>`;
+  $('#menu').hidden = false;
+  const r = el.getBoundingClientRect(), w = b.offsetWidth, h = b.offsetHeight, vw = innerWidth, vh = innerHeight;
+  let x = Math.min(vw - w - 12, Math.max(12, r.left + r.width / 2 - w / 2)), y = r.bottom + 8;
+  if (y + h > vh - 12) y = r.top - h - 8;
+  if (y < 12) y = Math.max(12, vh - h - 12);
+  b.style.left = x + 'px'; b.style.top = y + 'px';
+  b.style.transformOrigin = `${r.left + r.width / 2 - x}px ${y < r.top ? '100%' : '0'}`;
+}
+function closeMenu() { $('#menu').hidden = true; S.menu = null; }
 
 /* ---------- Zeitrad (5-Minuten-Schritte) ---------- */
 const TPI = 40, TP = { on: false };
@@ -822,7 +867,8 @@ function doImport(mode) {
     for (const [d, X] of Object.entries(j.days)) {
       const T = day(d, true); n++;
       for (const [k, v] of Object.entries(X || {})) {
-        if (k === 'sleep' || k === 'mood') T[k] = Object.assign(T[k] || {}, v);
+        if (k === 'mood' && v && v.log && T.mood && moodLog(T.mood).length) { const l = moodLog(T.mood).slice(); v.log.forEach(e => { if (!l.some(x => x.id === e.id)) l.push(e); }); T.mood = Object.assign(T.mood, v, { log: l }); moodSync(T.mood); }
+        else if (k === 'sleep' || k === 'mood') T[k] = Object.assign(T[k] || {}, v);
         else if (k === 'habits') T.habits = Object.assign(T.habits || {}, v);
         else if (k === 'coffee' || k === 'sport') { T[k] = T[k] || []; (v || []).forEach(e => { e.id = e.id || uid(); if (!T[k].some(x => x.id === e.id)) T[k].push(e); }); }
         else if (k === 'note') T.note = v;
@@ -837,7 +883,7 @@ function doImport(mode) {
 }
 
 /* ---------- Events ---------- */
-/* Langes Drücken auf Getränk, Sportart oder Gewohnheit öffnet das Bearbeiten-Fenster */
+/* Langes Drücken auf Getränk, Sportart oder Gewohnheit öffnet das kleine Menü */
 const LP = { t: 0, fired: false, x: 0, y: 0 };
 let CG = null;
 function cgAt(svg, e) {
@@ -858,15 +904,25 @@ document.addEventListener('pointerdown', e => {
   if (svg) { CG = svg; try { svg.setPointerCapture(e.pointerId); } catch (x) { } cgAt(svg, e); return; }
   const el = e.target.closest && e.target.closest('[data-lp]'); if (!el) return;
   LP.x = e.clientX; LP.y = e.clientY;
-  LP.t = setTimeout(() => { LP.fired = true; const [k, id] = el.dataset.lp.split('|'); try { navigator.vibrate && navigator.vibrate(8); } catch (x) { } openEdit(k, id); }, 480);
+  LP.t = setTimeout(() => { LP.fired = true; const [k, id] = el.dataset.lp.split('|'); try { navigator.vibrate && navigator.vibrate(8); } catch (x) { } openMenu(k, id, el); }, 480);
 });
 document.addEventListener('pointermove', e => {
   if (CG) { cgAt(CG, e); return; }
   if (Math.abs(e.clientX - LP.x) > 10 || Math.abs(e.clientY - LP.y) > 10) clearTimeout(LP.t);
 });
 ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, () => { clearTimeout(LP.t); cgEnd(); }));
+/* Solange die Koffein-Kurve abgetastet wird, scrollt die Seite nicht */
+document.addEventListener('touchmove', e => { if (CG && e.cancelable) e.preventDefault(); }, { passive: false });
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-lp], svg.cgraph')) e.preventDefault(); });
-function moodCommit(t) { const v = Math.round(Number(t.value) * 10) / 10; if (!(v >= 1 && v <= 5)) return; sec(S.date, 'mood').v = v; save(); render(); }
+function moodCommit(t) {
+  const v = Math.round(Number(t.value) * 10) / 10; if (!(v >= 1 && v <= 5)) return;
+  const o = sec(S.date, 'mood'); let e = moodAct(o);
+  if (!o.log) o.log = moodLog(o);
+  if (e) e = o.log.find(x => x.id === e.id);
+  if (!e) { e = { id: uid(), t: S.date === todayStr() ? nowT() : '', v }; o.log.push(e); }
+  e.v = v; S.ma = { id: e.id, d: S.date, at: Date.now() };
+  moodSync(o); save(); render();
+}
 document.addEventListener('click', e => {
   if (LP.fired) { LP.fired = false; e.preventDefault(); return; }
   if (e.target.dataset && e.target.dataset.rng === 'mood') { moodCommit(e.target); return; }
@@ -906,7 +962,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
-  if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v); if ($('#mood-e').dataset.n !== String(i)) { $('#mood-e').innerHTML = face(i); $('#mood-e').dataset.n = i; } $('#mood-l').textContent = MOOD_N[i - 1] + ' · ' + f1(v); t.closest('.moodbox').classList.remove('unset'); }
+  if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v); if ($('#mood-e').dataset.n !== String(i)) { $('#mood-e').innerHTML = face(i); $('#mood-e').dataset.n = i; } $('#mood-l').textContent = MOOD_N[i - 1] + ' · ' + f1(v); t.closest('.moodbox').classList.remove('unset', 'idle'); }
   if (t.dataset.ed && S.ed) S.ed.d[t.dataset.ed] = t.type === 'number' ? Number(t.value) : t.value;
   if (t.dataset.edsz && S.ed && S.ed.d.sizes) { const z = S.ed.d.sizes[+t.dataset.edsz]; if (z) z[t.dataset.p] = t.type === 'number' ? Number(t.value) : t.value; }
 });

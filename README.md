@@ -89,3 +89,10 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Gewohnheits-Symbole eindeutig gemacht: „Gelernt“ ist jetzt ein Heft mit Stift (nicht mehr Bücherstapel wie „Gelesen“), „Kreativ“ eine Palette, „Spät gegessen“ Teller mit Mond, „Bildschirm im Bett“ Bett mit Handy, „Aufgeräumt“ ein Besen. Sterne und Mond allein gibt es nicht mehr.
 - Verlauf und Einstellungen nutzen schon Farben, Schrift und Zeichnungen; deren eigener Umbau folgt.
 - Entwurfsdateien unter `design/` (Stilblatt, Erzeuger der Sportfiguren).
+
+### 2.1
+- **Koffein-Kurve:** Solange man die Kurve abtastet, scrollt die Seite nicht mehr (`touch-action:none` plus `touchmove`-Sperre).
+- **Kleines Menü bei langem Drücken** (Getränk, Sportart, Gewohnheit): Verstecken, Löschen (zweimal tippen), Bearbeiten. Tippen daneben schließt es. Erst „Bearbeiten“ öffnet das große Fenster (`openMenu`, `#menu`).
+- **Getränke** als kompaktes Raster, zwei nebeneinander (`.cgrid`, `.cti`); Häkchen bzw. Zähler als kleine Marke oben rechts.
+- **Mehrere Stimmungen pro Tag:** `mood.log = [{id,t,v}]`, `mood.v` ist der Tagesschnitt (Verlauf und Muster rechnen damit weiter). Ältere Tage mit nur `mood.v` erscheinen als ein Eintrag ohne Uhrzeit. Regler ändert den gerade aktiven Eintrag (10 Minuten lang oder nach Antippen), sonst legt er einen neuen an.
+- Test: `tests/t3.py` (Playwright, 70 Prüfungen hell/dunkel).
