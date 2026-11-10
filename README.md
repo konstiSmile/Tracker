@@ -102,3 +102,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 2.3
 - Koffein-Kurve: dünne gestrichelte Orientierungslinie bei 50 mg (Faustregel nach EFSA: Effekte auf den Schlaf ab etwa 100 mg kurz vor dem Schlafen, darunter keine gefunden). Die mittlere Hilfslinie entfällt, wenn sie zu nah an der 50er-Linie läge.
+
+### 2.4
+- Die 50-mg-Linie erscheint nur, wenn die Kurve an dem Tag über 50 mg kommt.

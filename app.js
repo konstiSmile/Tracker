@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.3';
+const VERSION = '2.4';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -232,17 +232,17 @@ function caffeineBlock(d) {
   let line = ''; for (let t = x0; t <= x1; t += 15) line += `${t === x0 ? 'M' : 'L'}${X(t).toFixed(1)} ${Y(caffeineAt(d, t)).toFixed(1)}`;
   let g = `<svg class="cgraph" viewBox="0 0 ${W} ${H}" width="100%" data-d="${d}" data-w="${W}" data-pl="${pl}" data-pr="${pr}" data-pt="${pt}" data-ph="${H - pt - pbm}" data-mx="${mx}" data-bed="${Math.round(atBed)}" role="img" aria-label="Restkoffein im Tagesverlauf">
     <defs><linearGradient id="cgf" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#E9B869"/><stop offset="1" stop-color="#D98A5F"/></linearGradient><linearGradient id="cgm" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity=".25"/></linearGradient><mask id="cgk"><rect width="${W}" height="${H}" fill="url(#cgm)"/></mask></defs>`;
-  const y50 = Y(50);   // Orientierungslinie: unter etwa 50 mg ist Einschlafen für die meisten unkritisch
-  [0, mx / 2].filter(v => !v || Math.abs(Y(v) - y50) > 20).forEach(v => g += `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--inset-2)" stroke-width="1.5" ${v ? 'stroke-dasharray="2 5" stroke-linecap="round"' : ''}/><text x="${pl - 6}" y="${Y(v) + 5}" text-anchor="end">${Math.round(v)}</text>`);
+  const y50 = Y(50), s50 = peak > 50;   // Linie nur, wenn die Kurve über 50 mg kommt. Orientierungslinie: unter etwa 50 mg ist Einschlafen für die meisten unkritisch
+  [0, mx / 2].filter(v => !v || !s50 || Math.abs(Y(v) - y50) > 20).forEach(v => g += `<line x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--inset-2)" stroke-width="1.5" ${v ? 'stroke-dasharray="2 5" stroke-linecap="round"' : ''}/><text x="${pl - 6}" y="${Y(v) + 5}" text-anchor="end">${Math.round(v)}</text>`);
   g += `<path d="${line}L${X(x1)} ${Y(0)}L${X(x0)} ${Y(0)}Z" fill="url(#cgf)" mask="url(#cgk)"/><path d="${line}" fill="none" stroke="url(#cgf)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
-  g += `<line class="l50" x1="${pl}" x2="${W - pr}" y1="${y50}" y2="${y50}" stroke="var(--acc)" stroke-width="1" stroke-dasharray="5 4"/><text x="${pl - 6}" y="${y50 + 5}" text-anchor="end" style="fill:var(--acc);font-weight:700">50</text>`;
+  if (s50) g += `<line class="l50" x1="${pl}" x2="${W - pr}" y1="${y50}" y2="${y50}" stroke="var(--acc)" stroke-width="1" stroke-dasharray="5 4"/><text x="${pl - 6}" y="${y50 + 5}" text-anchor="end" style="fill:var(--acc);font-weight:700">50</text>`;
   [[360, '6'], [720, '12'], [1080, '18'], [1440, '0'], [1800, '6']].forEach(([t, l], i) => g += `<text x="${X(t)}" y="${H - 6}" text-anchor="${i === 4 ? 'end' : 'middle'}">${l}</text>`);
   if (isT && nowM >= x0) g += `<line x1="${X(nowM)}" x2="${X(nowM)}" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round"/>`;
   if (bd.m <= x1) g += `<line x1="${X(bd.m)}" x2="${X(bd.m)}" y1="${pt}" y2="${Y(0)}" stroke="var(--t4)" stroke-width="2" stroke-linecap="round"/><text x="${X(bd.m)}" y="${pt - 8}" text-anchor="middle" style="fill:var(--acc);font-weight:700">22</text>`;
   g += `<g id="cg-g" display="none"><line id="cg-l" y1="${pt}" y2="${Y(0)}" stroke="var(--ink)" stroke-width="1.5"/><circle id="cg-c" r="7" fill="var(--t3)" stroke="var(--card)" stroke-width="3"/></g></svg>`;
   return `<div class="sub"><div class="kv"><span>${isT ? 'Jetzt noch im Körper' : 'Höchststand am Tag'}</span><b>≈ ${Math.round(isT ? caffeineAt(d, nowM) : peak)} mg</b></div>
     <div class="kv"><span id="cg-lab">Um 22 Uhr noch im Körper</span><b id="cg-val">≈ ${Math.round(atBed)} mg</b></div>${g}
-    <small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. Gestrichelte Linie: 50 mg, darunter stört es den Schlaf bei den meisten kaum. Vereinfachtes Modell mit ${DB.cfg.halfLife || 6} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
+    <small class="hint">Kurve gedrückt halten und ziehen: Restkoffein zu jeder Uhrzeit. ${s50 ? 'Gestrichelte Linie: 50 mg, darunter stört es den Schlaf bei den meisten kaum. ' : ''}Vereinfachtes Modell mit ${DB.cfg.halfLife || 6} h Halbwertszeit (einstellbar). Gilt im Schnitt, bei dir kann es abweichen.</small></div>`;
 }
 function rankItems(items, kind, d) {
   const today = todayStr(), wd = parse(d).getDay(), bucket = t => { const h = tmin(t) / 60; return h < 11 ? 0 : h < 15 ? 1 : h < 19 ? 2 : 3; };
