@@ -99,3 +99,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ### 2.2
 - Standard-Halbwertszeit von Koffein 6 h statt 5 h. Migration `cfg.v = 7`: wer noch 5 h (alter Standard) eingestellt hatte, bekommt 6 h; eigene Werte bleiben.
+
+### 2.3
+- Koffein-Kurve: dünne gestrichelte Orientierungslinie bei 50 mg (Faustregel nach EFSA: Effekte auf den Schlaf ab etwa 100 mg kurz vor dem Schlafen, darunter keine gefunden). Die mittlere Hilfslinie entfällt, wenn sie zu nah an der 50er-Linie läge.

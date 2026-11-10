@@ -84,7 +84,7 @@ try:
         chk(T+'gelöscht',not pg.evaluate("DB.cfg.habits.some(x=>x.id==='h2')") and pg.locator('#menu').is_hidden())
         lp('.cti[data-id=espresso]'); chk(T+'Menü auch bei Getränk',pg.locator('#menu').is_visible()); pg.locator('.menu-bg').click(position={'x':5,'y':5})
         # --- Kurve: kein Scrollen beim Ziehen
-        g=pg.locator('svg.cgraph'); g.evaluate("e=>e.scrollIntoView({block:'center'})"); chk(T+'touch-action none',g.evaluate("e=>getComputedStyle(e).touchAction")=='none')
+        g=pg.locator('svg.cgraph'); g.evaluate("e=>e.scrollIntoView({block:'center'})"); chk(T+'50er-Linie',pg.locator('svg.cgraph .l50').count()==1); chk(T+'touch-action none',g.evaluate("e=>getComputedStyle(e).touchAction")=='none')
         bx=g.bounding_box(); sy=pg.evaluate("scrollY"); x=bx['x']+80; y=bx['y']+bx['height']/2
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x,'y':y}]})
         for i in range(1,12): cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x+i*12,'y':y-i*14}]}); time.sleep(.02)
