@@ -1,7 +1,7 @@
 // Offline-Speicher: erst Netz (immer aktuell), sonst Zwischenspeicher.
 // Bei jeder Änderung die Version erhöhen.
-const CACHE = 'tracker-v14';
-const FILES = ['./', 'index.html', 'app.js', 'app.css', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'tracker-v15';
+const FILES = ['./', 'index.html', 'app.js', 'app.css', 'tokens.css', 'icons.js', 'fonts/Lora-Variable.ttf', 'fonts/InstrumentSans-Regular.ttf', 'fonts/InstrumentSans-Bold.ttf', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim()));

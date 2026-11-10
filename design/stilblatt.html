@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tracker – Stilblatt</title><link rel="stylesheet" href="../tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,var(--bg),var(--bg-2));font:var(--fs-1)/1.5 var(--sans);color:var(--ink);padding:var(--s-3) var(--s-2) var(--s-4);max-width:390px}
+h1{font:var(--fs-3)/1.2 var(--serif);margin:0 0 var(--s-1)}
+h2{font:var(--fs-2)/1.3 var(--serif);margin:var(--s-4) 0 var(--s-2)}
+p{margin:0;color:var(--mut)}
+.lbl{color:var(--mut);margin:var(--s-2) 0 var(--s-1)}
+.card{background:var(--card);border-radius:var(--r-l);padding:var(--s-3) var(--s-2);box-shadow:var(--sh-1);margin-bottom:var(--s-2)}
+.sw{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-1)}
+.sw i{display:block;height:56px;border-radius:var(--r-s);box-shadow:var(--sh-1)}
+.sw span{display:block;color:var(--mut);margin-top:4px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-2)}
+.tile{aspect-ratio:1;border-radius:var(--r-m);background:var(--g);display:grid;place-items:center;box-shadow:var(--sh-on)}
+.tile .ic{width:78%;height:78%}
+.tiles small{display:block;text-align:left;font-size:var(--fs-1);margin-top:var(--s-1);color:var(--mut);letter-spacing:-.02em}
+.type b{font-family:var(--serif);font-weight:400;display:block;line-height:1.2;margin-bottom:var(--s-1)}
+.hd{display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2)}
+.hd .tile{width:48px;border-radius:16px;flex:none}
+.hd b{font:var(--fs-2) var(--serif);flex:1}
+.hd span{color:var(--mut)}
+.bar{height:8px;border-radius:var(--r-pill);background:var(--inset);overflow:hidden;margin-bottom:var(--s-2)}
+.bar i{display:block;height:100%;border-radius:var(--r-pill);background:var(--g)}
+.chips{display:flex;flex-wrap:wrap;gap:var(--s-1)}
+.chip{display:flex;align-items:center;gap:var(--s-1);min-height:var(--tap);padding:0 var(--s-2) 0 12px;border-radius:var(--r-pill);background:var(--inset);font:inherit;color:inherit;border:0}
+.chip small{font-size:inherit;color:var(--mut)}
+.chip.on{background:var(--gs);color:var(--on);font-weight:700;box-shadow:var(--sh-on);padding-right:12px}
+.chip.on small{color:inherit;font-weight:400}
+.chip .gl{width:20px;height:20px}
+.hgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-1)}
+.hab{display:flex;align-items:center;gap:var(--s-1);min-height:64px;padding:var(--s-1) 12px;border-radius:var(--r-m);background:var(--inset);border:0;font:inherit;color:inherit;text-align:left;line-height:1.25}
+.hab span{flex:1}
+.hab.on{background:var(--gs);color:var(--on);font-weight:700;box-shadow:var(--sh-on)}
+.tabs{display:flex;background:var(--card);border-radius:var(--r-l);box-shadow:var(--sh-2);padding:var(--s-1)}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;font:inherit;color:var(--mut);padding:var(--s-1) 0;border-radius:var(--r-m)}
+.tabs .ic{width:28px;height:28px;--t2:#D9CFC6;--t3:#B7A9A4;--t4:#8E7F80}
+.tabs .on{color:var(--brand);font-weight:700;background:color-mix(in srgb,var(--brand) 9%,transparent)}
+.tabs .on .ic{--t2:#E8A9A4;--t3:#C4737A;--t4:#7E3443}
+.faces{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s-1)}
+.faces div{background:var(--inset);border-radius:var(--r-m);display:grid;place-items:center;aspect-ratio:1}
+.faces .ic{width:44px;height:44px}
+.faces .on{background:var(--card);box-shadow:var(--sh-2);transform:translateY(-4px)}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--s-1)}
+.grid div{aspect-ratio:1;border-radius:var(--r-s);background:var(--inset);display:grid;place-items:center}
+.grid .ic{width:36px;height:36px}
+.gls{display:flex;gap:var(--s-2);color:var(--mut)}
+.empty{display:flex;gap:var(--s-2);align-items:center}
+.empty .ic{width:72px;height:72px}
+</style></head><body>
+<script src="../icons.js"></script>
+<script>
+const P=new URLSearchParams(location.search).get('p')||'1';
+const areas=[['mood','Stimmung'],['sleep','Schlaf'],['coffee','Koffein'],['sport','Sport'],['habit','Gewohnheiten']];
+const T=n=>`<div class="tile on-g">${tile(n)}</div>`;
+let h='';
+if(P==='1'){h=`
+<h1>Abendlicht</h1>
+<p>Warmes Papier, gedämpfte Farben wie kurz nach Sonnenuntergang. Farbe erscheint nur dort, wo du etwas eingetragen hast.</p>
+<h2>Flächen und Schrift</h2>
+<div class="sw">${[['--bg','Grund'],['--card','Karte'],['--inset','Feld'],['--ink','Schrift']].map(([v,l])=>`<div><i style="background:var(${v})"></i><span>${l}</span></div>`).join('')}</div>
+<h2>Fünf Bereiche, fünf Verläufe</h2>
+<div class="tiles">${areas.map(([k,l])=>`<div class="a-${k}">${T(k)}<small>${l}</small></div>`).join('')}</div>
+<h2>Schrift</h2>
+<div class="card type"><b style="font-size:var(--fs-4)">7:40 h</b><b style="font-size:var(--fs-3)">Montag, 9. November</b><b style="font-size:var(--fs-2)">Koffein</b>Instrument Sans für alles andere, mindestens 16 px. <span style="color:var(--mut)">Nebentext in warmem Grau.</span><p style="margin-top:8px">Überschriften und Zahlen: Young Serif.</p></div>
+<h2>Bausteine</h2>
+<div class="card a-coffee"><div class="hd">${T('coffee')}<b>Koffein</b><span>128 / 400 mg</span></div>
+<div class="bar"><i style="width:32%"></i></div>
+<div class="chips"><button class="chip on on-g">${ic('tasse')}Espresso<small>63</small>${gl('check')}</button><button class="chip">${ic('latte')}Cappuccino<small>63</small></button><button class="chip">${ic('tee')}Schwarzer Tee<small>45</small></button></div></div>
+<div class="card a-habit"><div class="hd">${T('habit')}<b>Gewohnheiten</b><span>2 von 4</span></div>
+<div class="hgrid"><button class="hab on on-g">${ic('baum')}<span>Draußen an der Luft</span>${gl('check')}</button><button class="hab">${ic('tropfen')}<span>Genug getrunken</span></button><button class="hab on on-g">${ic('buch')}<span>Gelernt</span>${gl('check')}</button><button class="hab">${ic('menschen')}<span>Zeit mit Menschen</span></button></div></div>
+<div class="tabs">${[['tab_heute','Heute',1],['tab_verlauf','Verlauf'],['tab_set','Einstellungen']].map(([i,l,o])=>`<button class="${o?'on':''}">${ic(i)}${l}</button>`).join('')}</div>`;}
+else{
+const G=(cls,names)=>`<div class="grid ${cls}">${names.map(n=>`<div>${ic(n)}</div>`).join('')}</div>`;
+h=`
+<h1>Illustrationen</h1>
+<p>Flach, ohne Konturen, drei bis vier Töne, Licht von links oben. Jeder Bereich zeichnet in seiner eigenen Tonleiter.</p>
+<h2>Stimmung und Erholung</h2>
+<div class="faces">${[1,2,3,4,5].map(n=>`<div class="${n===4?'on':''}">${face(n)}</div>`).join('')}</div>
+<h2>Getränke</h2>${G('a-coffee',['tasse','becher','bohne','kanne','latte','tee','blatt','matcha','cola','dose','flasche'])}
+<h2>Sport</h2>${G('a-sport',['laufen','klettern','wandern','kraft','schwimmen','rad','pendel','yoga','spazieren','ball','bouldern','tennis','ski','tanzen','hiit','medaille'])}
+<h2>Gewohnheiten</h2>${G('a-habit',['baum','tropfen','buch','menschen','handy','glas','suess','spirale','lotus','apfel','lesen','sonnenaufgang','glanz','palette','mond','rauch','sanduhr','stuhl','teller','bett','herz'])}
+<h2>Auf Verlauf (ausgewählt)</h2>
+<div class="grid">${[['coffee','tasse'],['coffee','cola'],['sport','rad'],['sport','wandern'],['habit','baum'],['habit','lotus']].map(([a,n])=>`<div class="a-${a} on-g" style="background:var(--gs);box-shadow:var(--sh-on)">${ic(n)}</div>`).join('')}</div>
+<h2>Leiste und Zeichen</h2>
+<div class="grid">${['tab_heute','tab_verlauf','tab_set'].map(n=>`<div>${ic(n)}</div>`).join('')}</div>
+<div class="gls" style="margin-top:16px">${Object.keys(GL).map(k=>gl(k)).join('')}</div>`;}
+document.body.insertAdjacentHTML('beforeend',h);
+</script></body></html>

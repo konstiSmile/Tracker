@@ -1,0 +1,118 @@
+/* Tracker – Gestaltungsgrundlagen ("Abendlicht").
+   Alle Farben, Verläufe, Schriften, Abstände, Radien, Schatten und Zeiten stehen hier.
+   Regeln:
+   - Verlauf ist Akzent, keine Fläche: ausgewählte Zustände (--gs), Balken und Diagramme (--g), eine Illustrationskachel pro Bereich (--g).
+   - --gs ist der gekürzte Verlauf für Flächen mit Text; --on ist die Textfarbe darauf (Kontrast mind. 4,5:1, geprüft).
+   - Pro Bereich genau eine Akzentfarbe (--acc) und eine Tonleiter für Illustrationen (--t1 hell … --t4 dunkel). */
+
+@font-face{font-family:"Lora";src:url(fonts/Lora-Variable.ttf) format("truetype");font-weight:400 700;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/InstrumentSans-Regular.ttf) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(fonts/InstrumentSans-Bold.ttf) format("truetype");font-weight:700;font-display:swap}
+
+:root{
+  /* Flächen */
+  --bg:#FBF5EC;          /* warmes Cremeweiß */
+  --bg-2:#F6EDE0;        /* feine Abstufung nach unten */
+  --card:#FFFCF7;        /* Karten */
+  --inset:#F3E9DB;       /* ruhende Tippflächen, Felder */
+  --inset-2:#EADDCB;     /* gedrückt, Hilfslinien */
+  --paper:#FFF8EE;       /* helle Töne auf Verläufen */
+  /* Schrift */
+  --ink:#3A2F33;
+  --mut:#74646A;
+  /* Hausfarbe (Tabs, Links, neutrale Auswahl) */
+  --brand:#A04C58;
+
+  /* Schrift: Serife für Überschriften und große Zahlen, Grotesk für alles andere */
+  --serif:"Lora",ui-serif,"New York",Georgia,serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  /* genau vier Größen */
+  --fs-1:16px;   /* Text, Beschriftungen */
+  --fs-2:20px;   /* Kartentitel */
+  --fs-3:28px;   /* Seitentitel, Kennzahlen */
+  --fs-4:40px;   /* eine große Zahl pro Ansicht */
+  --fw-serif:600;
+
+  /* 8-px-Raster */
+  --s-1:8px;--s-2:16px;--s-3:24px;--s-4:32px;--s-6:48px;
+  --tap:48px;            /* Mindesthöhe von Tippflächen */
+
+  /* Radien */
+  --r-s:12px;            /* Felder, kleine Kacheln */
+  --r-m:20px;            /* Tippflächen, Illustrationskacheln */
+  --r-l:28px;            /* Karten, Bögen */
+  --r-pill:999px;
+
+  /* Schatten: weich und warm getönt, keine Rahmenlinien */
+  --sh-1:0 1px 2px rgba(122,74,52,.05),0 8px 24px rgba(122,74,52,.08);
+  --sh-2:0 2px 4px rgba(122,74,52,.06),0 16px 40px rgba(122,74,52,.13);
+  --sh-on:0 6px 16px -6px var(--glow,rgba(122,74,52,.3));
+
+  /* Bewegung */
+  --t-fast:150ms;--t-med:200ms;--t-slow:250ms;
+  --ease:cubic-bezier(.2,.7,.3,1);
+
+  /* Stimmungs-Set (1 bis 5): Grundton und Schattenton */
+  --f1:#A68AA6;--f1s:#8D7090;
+  --f2:#C08E9E;--f2s:#A6748A;
+  --f3:#D9999A;--f3s:#C07C84;
+  --f4:#EBA98F;--f4s:#D58E7C;
+  --f5:#F2BC85;--f5s:#E0A070;
+  --f-ink:#4A1F2C;
+
+  /* neutrale Tonleiter (Tabs, Einstellungen, Leerzustände) */
+  --t1:#F1E2D3;--t2:#DDBFA9;--t3:#B98A80;--t4:#6B4750;
+}
+
+/* Bereiche */
+.a-mood{   /* Altrosa → Pfirsich */
+  --g:linear-gradient(135deg,#C4737A 0%,#E9A988 100%);
+  --gs:linear-gradient(135deg,#C4737A 0%,#E9A988 100%);
+  --on:#3D1420;--acc:#A04C58;--glow:rgba(196,115,122,.55);
+  --t1:#F6D9D2;--t2:#E8A9A4;--t3:#C4737A;--t4:#7E3443}
+.a-sleep{  /* Violett → Pfirsich */
+  --g:linear-gradient(135deg,#5E4A6E 0%,#9A6480 55%,#D99278 100%);
+  --gs:linear-gradient(135deg,#5E4A6E 0%,#8A5874 100%);
+  --on:#FFF8EE;--acc:#5E4A6E;--glow:rgba(94,74,110,.5);
+  --t1:#EBD9DE;--t2:#C3A3C4;--t3:#7E6394;--t4:#473559}
+.a-coffee{ /* Gelb → Orange */
+  --g:linear-gradient(135deg,#E9B869 0%,#D98A5F 100%);
+  --gs:linear-gradient(135deg,#E9B869 0%,#D98A5F 100%);
+  --on:#3B2110;--acc:#9A5A24;--glow:rgba(217,138,95,.55);
+  --t1:#F8E3BC;--t2:#EDBE74;--t3:#D98A5F;--t4:#8A4A2C}
+.a-sport{  /* Petrol → Violett */
+  --g:linear-gradient(135deg,#357379 0%,#5F4B78 100%);
+  --gs:linear-gradient(135deg,#357379 0%,#5F4B78 100%);
+  --on:#FFF8EE;--acc:#2F6B72;--glow:rgba(53,115,121,.5);
+  --t1:#CFE3E0;--t2:#7FB3B4;--t3:#3C7F86;--t4:#4F3F6B}
+.a-habit{  /* Salbeigrün → Petrol */
+  --g:linear-gradient(135deg,#A9BD94 0%,#6FA08F 55%,#3F8087 100%);
+  --gs:linear-gradient(135deg,#A9BD94 0%,#6FA08F 100%);
+  --on:#14302C;--acc:#3F6F5C;--glow:rgba(111,160,143,.55);
+  --t1:#DDE6CF;--t2:#A9BD94;--t3:#5E957F;--t4:#2F5F63}
+
+/* Illustrationen: flach, ohne Konturen, vier Töne aus der Tonleiter des Bereichs */
+.ic{width:32px;height:32px;flex:none;display:block}
+.ic .a{fill:var(--t1)}.ic .b{fill:var(--t2)}.ic .c{fill:var(--t3)}.ic .d{fill:var(--t4)}.ic .p{fill:var(--paper)}
+.ic [class^=s]{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ic .sa{stroke:var(--t1)}.ic .sb{stroke:var(--t2)}.ic .sc{stroke:var(--t3)}.ic .sd{stroke:var(--t4)}.ic .sp{stroke:var(--paper)}
+/* auf einem Verlauf (ausgewählt, Kachel): helle Töne plus die Textfarbe des Verlaufs */
+.on-g .ic,.ic.on-g{--t1:var(--paper);--t2:color-mix(in srgb,var(--paper) 78%,transparent);--t3:color-mix(in srgb,var(--on) 45%,transparent);--t4:var(--on)}
+.gl{width:24px;height:24px;flex:none;display:block;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.face .fl{fill:none;stroke:var(--f-ink);stroke-linecap:round;stroke-linejoin:round}
+.face .fd{fill:var(--f-ink)}.face .fc{fill:#E0707A;opacity:.42}.face .fp{fill:var(--paper)}
+
+/* Dunkles Thema: gleiche Verläufe, dunkles warmes Papier, hellere Akzente für Text */
+[data-theme=dark]{
+  --bg:#1E191B;--bg-2:#191516;--card:#2A2326;--inset:#372D31;--inset-2:#46393E;
+  --ink:#F3E7DA;--mut:#B9A7A4;--brand:#E6A5A3;
+  --sh-1:0 1px 2px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.28);
+  --sh-2:0 2px 4px rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.4);
+  --t1:#4A3D41;--t2:#8A7475;--t3:#C9A79C;--t4:#F1DCCB;
+  color-scheme:dark}
+[data-theme=dark] .a-mood{--acc:#E6A5A3}
+[data-theme=dark] .a-sleep{--acc:#C9ACCB}
+[data-theme=dark] .a-coffee{--acc:#EDBE74}
+[data-theme=dark] .a-sport{--acc:#8FC0C0}
+[data-theme=dark] .a-habit{--acc:#A9BD94}
+:root{color-scheme:light}

@@ -7,12 +7,12 @@ Live über GitHub Pages: `https://konstiSmile.github.io/Tracker/`
 ## Datenformat (`tracker-v1`)
 ```
 { v:1,
-  cfg:{ theme, limit, coffee:[{id,name,mg,e}], sports:[{id,name,e}], habits:[{id,name,type:'pos'|'neg',e}] },
+  cfg:{ v, theme, limit, halfLife, coffee:[{id,name,mg,e,i,sizes?,hid?}], sports:[{id,name,e,i,hid?}], habits:[{id,name,type:'pos'|'neg',e,i,hid?}] },
   days:{ "JJJJ-MM-TT":{
     mood:{ v:1-5, tags:[], qa:[{q,a}], note },
     sleep:{ bed:"HH:MM", wake:"HH:MM", dur:min, q:1-5, fall, wakes, morning, score, deep, rem, light, awake, rhr, src, note },
-    coffee:[{id,t:"HH:MM",k,name,mg,e}],
-    sport:[{id,t,name,e,min,int:1-3}],
+    coffee:[{id,t:"HH:MM",k,name,mg,e,i}],
+    sport:[{id,t,name,e,i,c?}],
     habits:{ habitId:1 },
     note } } }
 ```
@@ -79,3 +79,13 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - **Stimmung:** Regler 1–5 in Zehntelschritten (rot → grün), `mood.v` kann Kommawerte haben; Emoji über `Math.round`.
 - **Koffein:** Kurve gedrückt halten und ziehen zeigt das Restkoffein zur Uhrzeit, beim Loslassen wieder 22 Uhr. Getränke können **Größen** haben (`sizes:[{l,mg}]`, erste = Standard); beim Antippen erscheint die Größenwahl, der Eintrag heißt z. B. „Cola 0,5 l“.
 - Migration `cfg.v = 5`: ergänzt Größen bei unveränderten Standard-Getränken, „Mate“, neue Sportarten und Gewohnheiten (versteckt). Gelöschte Standard-Einträge kommen nicht zurück.
+
+### 2.0 (neues Design „Abendlicht“, Heute-Ansicht)
+- Gestaltungsgrundlagen zentral in `tokens.css`: Farben, ein Verlauf pro Bereich (Stimmung, Schlaf, Koffein, Sport, Gewohnheiten), Schriften, 8-px-Raster, Radien, Schatten, Zeiten. Helles und dunkles Thema.
+- Schriften liegen in `fonts/` (Lora für Überschriften und Zahlen, Instrument Sans für Text; beide unter SIL Open Font License), funktionieren offline.
+- Alle Emojis ersetzt durch eigene flache Zeichnungen in `icons.js` (Stimmungs-Gesichter, Getränke, Sportfiguren, Gewohnheiten, Tab-Symbole). Getränke, Sportarten und Gewohnheiten haben dazu das Feld `i` (Symbolname); `e` bleibt für ältere Sicherungen. Migration `cfg.v` 6 ordnet alle Einträge zu, auch selbst angelegte (über das Emoji).
+- Bearbeiten-Fenster: Symbolauswahl statt Emoji-Feld.
+- Heute: Kopf mit Illustrationskachel je Bereich, ausgewählte Einträge mit Verlauf und Häkchen bzw. Zähler (z. B. „2×“), Koffein-Kurve mit Verlaufsfüllung, Erholung mit den Stimmungs-Gesichtern, kurze Animationen, kleine Animation, wenn alle sichtbaren positiven Gewohnheiten erledigt sind.
+- Gewohnheits-Symbole eindeutig gemacht: „Gelernt“ ist jetzt ein Heft mit Stift (nicht mehr Bücherstapel wie „Gelesen“), „Kreativ“ eine Palette, „Spät gegessen“ Teller mit Mond, „Bildschirm im Bett“ Bett mit Handy, „Aufgeräumt“ ein Besen. Sterne und Mond allein gibt es nicht mehr.
+- Verlauf und Einstellungen nutzen schon Farben, Schrift und Zeichnungen; deren eigener Umbau folgt.
+- Entwurfsdateien unter `design/` (Stilblatt, Erzeuger der Sportfiguren).
