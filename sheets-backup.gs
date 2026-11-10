@@ -1,6 +1,7 @@
 // Tracker-Backup für Google Tabellen. Einfügen unter Erweiterungen → Apps Script.
 // 1) Unten bei PASSWORT ein eigenes Wort eintragen (dasselbe später in der App).
 // 2) Bereitstellen → Neue Bereitstellung → Typ „Web-App“ → Ausführen als: Ich → Zugriff: Jeder.
+// Nach Änderungen am Skript: Bereitstellen → Bereitstellungen verwalten → Stift → Version „Neue Version“ → Bereitstellen (Adresse bleibt gleich).
 const PASSWORT = 'HIER-EIGENES-PASSWORT';
 
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -31,6 +32,12 @@ function doPost(e) {
 
 function doGet(e) {
   if (!e.parameter || e.parameter.key !== PASSWORT) return out_({ ok: false, err: 'key' });
-  const v = sheet_('Rohdaten').getDataRange().getValues().slice(1).map(r => r[0]).join('');
+  const rows = sheet_('Rohdaten').getDataRange().getValues(), v = rows.slice(1).map(r => r[0]).join('');
+  if (e.parameter.w) {   // kleiner Auszug für das Scriptable-Widget: letzte 4 Tage und das Nötigste aus den Einstellungen
+    let db; try { db = JSON.parse(v); } catch (x) { return out_({ ok: false, err: 'leer' }); }
+    const c = db.cfg || {}, days = {};
+    Object.keys(db.days || {}).sort().slice(-4).forEach(k => days[k] = db.days[k]);
+    return out_({ ok: true, w: 1, stand: rows[0] && rows[0][1] ? String(rows[0][1]) : '', cfg: { halfLife: c.halfLife, limit: c.limit, habits: (c.habits || []).map(h => ({ id: h.id, name: h.name, type: h.type, hid: h.hid })) }, days: days });
+  }
   return ContentService.createTextOutput(v || '{}').setMimeType(ContentService.MimeType.JSON);
 }

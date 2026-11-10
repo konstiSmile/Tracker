@@ -114,3 +114,8 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - **Erfolge** (`fbList`, `fbCheck`, `#fb`): kurze Meldung oben, passend zum Tag oder zur Woche, jede höchstens einmal pro Tag (`tracker-fb` im localStorage), nur für heute.
 - **Erkenntnis** (`insights`): ein Satz aus den eigenen Daten, z. B. Stimmung an Sporttagen gegen Tage ohne.
 - Kleine Belohnung: Alle fünf Bereiche eingetragen lässt alle Kacheln kurz aufleuchten.
+
+## Scriptable-Widget (10.11.2026)
+- `widget/Tracker.js`: Widget für Homescreen (klein, mittel) und Sperrbildschirm. Zeigt eine Erinnerung nach Tageszeit (Schlaf, Stimmung, offene Gewohnheiten, Abend-Check-in), Koffein jetzt und um 22 Uhr, Gewohnheiten, Stimmung. Adresse und Passwort liegen im Schlüsselbund von Scriptable.
+- `sheets-backup.gs`: `doGet` liefert mit `&w=1` einen kleinen Auszug (letzte 4 Tage, Halbwertszeit, Gewohnheiten). Nach dem Einfügen als neue Version bereitstellen. Das Widget versteht auch das komplette Backup der älteren Fassung.
+- Test: `node tests/t_widget.js`. Die App selbst ist unverändert (Version 2.5).
