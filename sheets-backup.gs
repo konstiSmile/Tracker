@@ -25,6 +25,7 @@ function doPost(e) {
       sp.map(k => (k.t || '') + ' ' + k.name + (k.min ? ' ' + k.min + ' min' : '')).join('; '),
       Object.keys(x.habits || {}).map(k => hn[k] || k).join(', '), [x.note, m.note, s.note].filter(Boolean).join(' | ')];
   });
+  if (b.w) sheet_('Widget').getRange(1, 1, 1, 2).setValues([['Hinweise', JSON.stringify(b.w)]]);   // für das Scriptable-Widget
   t.clearContents(); t.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); t.setFrozenRows(1);
   if (data.length) t.getRange(2, 1, data.length, head.length).setValues(data);
   return out_({ ok: true, days: data.length });
@@ -33,11 +34,13 @@ function doPost(e) {
 function doGet(e) {
   if (!e.parameter || e.parameter.key !== PASSWORT) return out_({ ok: false, err: 'key' });
   const rows = sheet_('Rohdaten').getDataRange().getValues(), v = rows.slice(1).map(r => r[0]).join('');
-  if (e.parameter.w) {   // kleiner Auszug für das Scriptable-Widget: letzte 4 Tage und das Nötigste aus den Einstellungen
+  if (e.parameter.w) {   // kleiner Auszug für das Scriptable-Widget: letzte 10 Tage und das Nötigste aus den Einstellungen
     let db; try { db = JSON.parse(v); } catch (x) { return out_({ ok: false, err: 'leer' }); }
     const c = db.cfg || {}, days = {};
-    Object.keys(db.days || {}).sort().slice(-4).forEach(k => days[k] = db.days[k]);
-    return out_({ ok: true, w: 1, stand: rows[0] && rows[0][1] ? String(rows[0][1]) : '', cfg: { halfLife: c.halfLife, limit: c.limit, habits: (c.habits || []).map(h => ({ id: h.id, name: h.name, type: h.type, hid: h.hid })) }, days: days });
+    Object.keys(db.days || {}).sort().slice(-10).forEach(k => days[k] = db.days[k]);
+    const weeks = {}; Object.keys(db.weeks || {}).sort().slice(-2).forEach(k => weeks[k] = { done: !!db.weeks[k].done });
+    let hint = null; try { hint = JSON.parse(sheet_('Widget').getRange(1, 2).getValue() || 'null'); } catch (x) { }
+    return out_({ ok: true, w: 1, stand: rows[0] && rows[0][1] ? String(rows[0][1]) : '', cfg: { halfLife: c.halfLife, limit: c.limit, habits: (c.habits || []).map(h => ({ id: h.id, name: h.name, type: h.type, hid: h.hid })) }, days: days, weeks: weeks, hint: hint });
   }
   return ContentService.createTextOutput(v || '{}').setMimeType(ContentService.MimeType.JSON);
 }

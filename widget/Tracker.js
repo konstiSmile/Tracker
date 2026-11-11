@@ -12,6 +12,8 @@ const CONFIG = {
   abStimmung: 9,        // „Wie geht es dir?“
   abGewohnheiten: 17,   // offene positive Gewohnheiten
   abCheckin: 18,        // Abend-Check-in
+  stimmungNach: 5,      // Stunden: danach erneut nach der Stimmung fragen (bis 21 Uhr)
+  rueckblickSonntag: 12,// Wochenrückblick sonntags ab dieser Stunde (sonst Mo/Di für die Vorwoche)
   aktualisieren: 10     // Minuten bis zur nächsten Abfrage (iOS entscheidet am Ende selbst)
 };
 // =================================================
@@ -43,12 +45,14 @@ function lage(db, jetzt) {
   const pos = ((db.cfg && db.cfg.habits) || []).filter(h => h.type !== "neg" && !h.hid);
   const getan = d.habits || {};
   const offen = pos.filter(h => !getan[h.id]).map(h => h.name);
-  const log = m.log || [];
+  const log = (m.log || []).slice().sort((a, b) => String(a.t || "").localeCompare(String(b.t || "")));
+  const letzte = log.length ? log[log.length - 1] : null;
   const bett = zeitpunkt(tag, pad2(CONFIG.bettzeit) + ":00");
   return {
     tag,
     schlaf: !!(s.dur || (s.bed && s.wake)),
-    stimmung: log.length ? log[log.length - 1].v : (m.v || 0),
+    stimmung: letzte ? letzte.v : (m.v || 0),
+    stimmungZeit: letzte && letzte.t ? zeitpunkt(tag, letzte.t) : null,
     stimmungen: log.length || (m.v ? 1 : 0),
     mgHeute: kaffee.reduce((a, c) => a + (c.mg || 0), 0),
     tassen: kaffee.length,
@@ -59,8 +63,27 @@ function lage(db, jetzt) {
     posGetan: pos.length - offen.length,
     offen,
     sport: (d.sport || []).length,
-    checkin: !!d.ci
+    checkin: !!d.ci,
+    rueckblick: rueckblickFaellig(db, jetzt),
+    hint: db.hint && db.hint.d === tag ? db.hint : null
   };
+}
+
+// Wochenrückblick fällig? Gleiche Regel wie wrDue in der App. Liefert den Montag der Woche oder null.
+function rueckblickFaellig(db, jetzt) {
+  const wd = jetzt.getDay(), h = jetzt.getHours();
+  const mo = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() - ((wd + 6) % 7));
+  let w = null;
+  if (wd === 0 && h >= CONFIG.rueckblickSonntag) w = mo;
+  else if (wd === 1 || wd === 2) w = new Date(mo.getFullYear(), mo.getMonth(), mo.getDate() - 7);
+  if (!w) return null;
+  const ws = tagStr(w);
+  if (db.weeks && db.weeks[ws] && db.weeks[ws].done) return null;
+  for (let i = 0; i < 7; i++) {
+    const x = (db.days || {})[tagStr(new Date(w.getFullYear(), w.getMonth(), w.getDate() + i))];
+    if (x && Object.keys(x).length) return ws;
+  }
+  return null;
 }
 
 // Was jetzt am ehesten fehlt. null = nichts offen.
@@ -70,18 +93,30 @@ function erinnerung(l, jetzt) {
   if (h >= CONFIG.abGewohnheiten && l.offen.length) return { art: "habit", kurz: l.offen.length + " offen", text: "Offen: " + l.offen.slice(0, 3).join(", ") + (l.offen.length > 3 ? " …" : "") };
   if (h >= CONFIG.abSchlaf && h < 17 && !l.schlaf) return { art: "sleep", kurz: "Schlaf?", text: "Schlaf eintragen" };
   if (h >= CONFIG.abStimmung && !l.stimmungen) return { art: "mood", kurz: "Stimmung?", text: "Wie geht es dir?" };
+  if (l.rueckblick) return { art: "week", kurz: "Woche?", text: "Wochenrückblick" };
+  if (h < 21 && !l.checkin && l.stimmungZeit && jetzt - l.stimmungZeit >= CONFIG.stimmungNach * 3600000)
+    return { art: "mood", kurz: "Stimmung?", text: "Wie geht es dir jetzt?" };
   return null;
 }
+
+// Wenn nichts offen ist: Erfolg von heute, sonst Erkenntnis, sonst „Alles eingetragen“
+function lob(l) {
+  const h = l.hint;
+  if (h && h.fb && h.fb.length) return { art: "fb", text: h.fb[0] };
+  if (h && h.ins) return { art: "ins", text: h.ins };
+  return { art: "ok", text: "Alles eingetragen" };
+}
+const ersterSatz = t => { const m = /^(.+?[.!?])(\s|$)/.exec(t); return m ? m[1] : t; };
 
 function leseAntwort(text) { // Auszug (w:1) oder komplettes Backup, beides wird verstanden
   let o;
   try { o = JSON.parse(text); } catch (e) { throw new Error("Keine Daten. Skript neu bereitgestellt? Adresse richtig?"); }
   if (o && o.ok === false) throw new Error(o.err === "key" ? "Passwort stimmt nicht" : "Tabelle ist leer");
   if (!o || !o.days) throw new Error("Tabelle ist leer");
-  return { cfg: o.cfg || {}, days: o.days, stand: o.stand || "" };
+  return { cfg: o.cfg || {}, days: o.days, weeks: o.weeks || {}, hint: o.hint || null, stand: o.stand || "" };
 }
 
-if (typeof module !== "undefined") module.exports = { CONFIG, tagStr, zeitpunkt, koffeinUm, lage, erinnerung, leseAntwort };
+if (typeof module !== "undefined") module.exports = { CONFIG, tagStr, zeitpunkt, koffeinUm, lage, erinnerung, lob, ersterSatz, rueckblickFaellig, leseAntwort };
 
 // ---------- Scriptable-Teil ----------
 if (typeof Script !== "undefined") {
@@ -154,14 +189,14 @@ if (typeof Script !== "undefined") {
       return w;
     }
 
-    const l = lage(db, jetzt), e = erinnerung(l, jetzt);
+    const l = lage(db, jetzt), e = erinnerung(l, jetzt), lb = e ? null : lob(l);
     const kTxt = l.tassen || l.mgJetzt >= 5
       ? "≈ " + l.mgJetzt + " mg" + (l.nachBett ? "" : " · " + CONFIG.bettzeit + " Uhr " + l.mgBett)
       : "kein Koffein";
     const hTxt = l.posGesamt ? l.posGetan + "/" + l.posGesamt : "";
 
     if (fam === "accessoryInline") {
-      w.addText(e ? e.text : (l.tassen ? "Koffein " + l.mgJetzt + " mg" : "Alles eingetragen"));
+      w.addText(e ? e.text : lb.art === "ok" && l.tassen ? "Koffein " + l.mgJetzt + " mg" : ersterSatz(lb.text));
       return w;
     }
     if (fam === "accessoryCircular") {
@@ -178,7 +213,8 @@ if (typeof Script !== "undefined") {
       if (tafel) { c.layoutVertically(); c.backgroundColor = new Color("#f2f2f7", 1); c.cornerRadius = 12; c.setPadding(4, 8, 4, 8); }
       const col = tafel ? Color.black() : Color.white();
       const z = (txt, fett) => { const t = c.addText(txt); t.font = fett ? Font.boldSystemFont(12) : Font.mediumSystemFont(11); t.textColor = col; t.lineLimit = 1; t.minimumScaleFactor = 0.7; };
-      z(e ? e.text : "✓ Alles eingetragen", true);
+      if (e) z(e.text, true);
+      else { const t = c.addText((lb.art === "ok" ? "✓ " : "") + ersterSatz(lb.text)); t.font = Font.boldSystemFont(12); t.textColor = col; t.lineLimit = 2; t.minimumScaleFactor = 0.7; }
       z("Koffein " + kTxt.replace("≈ ", ""));
       z([hTxt ? "Gewohnh. " + hTxt : "", l.stimmung ? "Stimmung " + l.stimmung : "", db.alt ? "alt" : ""].filter(Boolean).join(" · ") || "Tracker");
       if (tafel) { const r = c.addStack(); r.addSpacer(); } // Tafel über die volle Breite
@@ -192,10 +228,11 @@ if (typeof Script !== "undefined") {
     const kopf = w.addText("Tracker");
     kopf.font = new Font("Georgia-Bold", 13); kopf.textColor = F.haus;
     w.addSpacer(4);
-    const haupt = w.addText(e ? e.text : "Alles eingetragen");
-    haupt.font = new Font("Georgia-Bold", klein ? 16 : 19);
-    haupt.textColor = e ? F.text : F.gut;
-    haupt.lineLimit = klein ? 3 : 2; haupt.minimumScaleFactor = 0.7;
+    const lang = !e && lb.art !== "ok";
+    const haupt = w.addText(e ? e.text : klein ? ersterSatz(lb.text) : lb.text);
+    haupt.font = new Font("Georgia-Bold", lang ? (klein ? 13 : 14) : (klein ? 16 : 19));
+    haupt.textColor = e ? F.text : lb.art === "ins" ? F.text : F.gut;
+    haupt.lineLimit = lang ? (klein ? 4 : 3) : (klein ? 3 : 2); haupt.minimumScaleFactor = 0.7;
     w.addSpacer();
 
     const zeile = (name, wert, farbe) => {
@@ -212,7 +249,7 @@ if (typeof Script !== "undefined") {
     } else {
       zeile("Koffein jetzt", kTxt, hoch ? F.haus : F.kaffee);
       if (hTxt) zeile("Gewohnheiten", hTxt + (l.offen.length && (!e || e.art !== "habit") ? " · " + l.offen.slice(0, 2).join(", ") : ""), l.posGetan === l.posGesamt ? F.gut : F.text);
-      zeile("Stimmung", l.stimmung ? MOOD[Math.round(l.stimmung)] || String(l.stimmung) : "noch offen");
+      if (!lang) zeile("Stimmung", l.stimmung ? MOOD[Math.round(l.stimmung)] || String(l.stimmung) : "noch offen");
     }
     w.addSpacer(4);
     const s = w.addText((db.alt ? "Offline · " : "") + "Stand " + hhmm(new Date(db.geholt || Date.now())));
@@ -237,7 +274,8 @@ if (typeof Script !== "undefined") {
           "\nTage geladen: " + Object.keys(db.days).length +
           "\nHeute: " + l.tassen + " Getränke, " + l.mgHeute + " mg, jetzt ≈ " + l.mgJetzt + " mg" +
           "\nGewohnheiten: " + l.posGetan + "/" + l.posGesamt +
-          "\nErinnerung: " + (e ? e.text : "keine");
+          "\nErinnerung: " + (e ? e.text : "keine") +
+          "\nOhne Erinnerung: " + lob(l).text + (db.hint ? "" : "\n(Keine Hinweise aus der App: Apps Script neu bereitgestellt und App aktualisiert?)");
       } catch (e) { text = "❌ " + String(e.message || e); }
       const a = new Alert(); a.title = "Verbindung"; a.message = text; a.addAction("OK"); await a.present();
     } else if (wahl >= 0) {

@@ -119,3 +119,10 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - `widget/Tracker.js`: Widget für Homescreen (klein, mittel) und Sperrbildschirm. Zeigt eine Erinnerung nach Tageszeit (Schlaf, Stimmung, offene Gewohnheiten, Abend-Check-in), Koffein jetzt und um 22 Uhr, Gewohnheiten, Stimmung. Adresse und Passwort liegen im Schlüsselbund von Scriptable.
 - `sheets-backup.gs`: `doGet` liefert mit `&w=1` einen kleinen Auszug (letzte 4 Tage, Halbwertszeit, Gewohnheiten). Nach dem Einfügen als neue Version bereitstellen. Das Widget versteht auch das komplette Backup der älteren Fassung.
 - Test: `node tests/t_widget.js`. Die App selbst ist unverändert (Version 2.5).
+
+## Version 2.6 (11.11.2026)
+- Einstellungen: Kachel „App-Ideen“ mit Notizfeld (`cfg.ideas`, wird mitgesichert). Nur zum Sammeln.
+- Backup sendet zusätzlich `w` (heutige Erfolge `fb`, Erkenntnis `ins`) für das Widget; das Apps Script legt es im Blatt „Widget“ ab. Nicht Teil der Daten.
+- Widget: fragt erneut nach der Stimmung, wenn der letzte Eintrag 5 h alt ist (bis 21 Uhr, nicht nach dem Check-in); erinnert an den Wochenrückblick (So ab 12 Uhr, Mo/Di für die Vorwoche); zeigt ohne offene Erinnerung einen Erfolg oder eine Erkenntnis. `doGet&w=1` liefert jetzt 10 Tage, die letzten 2 Wochen (`done`) und `hint`.
+- Tests: `node tests/t_widget.js` (48), `tests/t6.py` (Ideen-Kachel).
+

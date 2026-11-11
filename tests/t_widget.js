@@ -17,10 +17,27 @@ ok(W.erinnerung(l, at(15)).art === 'sleep', '15 Uhr Schlaf fehlt');
 ok(W.erinnerung(l, at(17, 30)).art === 'habit', '17:30 Gewohnheit');
 ok(W.erinnerung(l, at(19)).art === 'checkin' && /1 offen/.test(W.erinnerung(l, at(19)).text), '19 Uhr Check-in');
 db.days['2026-11-10'].ci = 1; db.days['2026-11-10'].habits.b = 1; db.days['2026-11-10'].sleep = { bed: '23:00', wake: '07:00' };
-l = W.lage(db, at(19)); ok(l.schlaf && W.erinnerung(l, at(19)) === null, 'alles erledigt');
+l = W.lage(db, at(17, 30)); ok(l.schlaf && W.erinnerung(l, at(17, 30)) === null, 'alles erledigt');
+ok(W.erinnerung(W.lage(db, at(19)), at(19)) === null, 'nach Check-in keine Stimmungsfrage');
 const leer = W.lage({ cfg: {}, days: {} }, at(10)); ok(leer.mgJetzt === 0 && W.erinnerung(leer, at(10)).art === 'sleep', 'leerer Tag');
 ok(W.erinnerung(Object.assign({}, leer, { schlaf: true }), at(10)).art === 'mood', 'Stimmung ab 9'); ok(W.erinnerung(Object.assign({}, leer, { schlaf: true }), at(8)) === null, 'vor 9 nichts');
 ok(W.lage(db, at(22, 5)).nachBett, 'nach 22 Uhr');
+// 5: Stimmung erneut nach 5 h, Wochenrückblick
+const db2 = { cfg: {}, days: { '2026-11-10': { sleep: { dur: 400 }, mood: { log: [{ t: '11:00', v: 4 }, { t: '09:00', v: 3 }] } } }, weeks: {} };
+let l2 = W.lage(db2, at(15)); ok(l2.stimmung === 4, 'letzte Stimmung nach Uhrzeit'); ok(W.erinnerung(l2, at(15)) === null, '2 h nach Stimmung nichts');
+ok(/jetzt/.test((W.erinnerung(W.lage(db2, at(16, 30)), at(16, 30)) || {}).text || ''), '5,5 h danach erneut fragen');
+ok(W.erinnerung(W.lage(db2, at(21, 30)), at(21, 30)) === null || W.erinnerung(W.lage(db2, at(21, 30)), at(21, 30)).art !== 'mood', 'nach 21 Uhr nicht mehr');
+const sun = new Date(2026, 10, 15, 13), dbw = { cfg: {}, days: { '2026-11-12': { note: 'x' }, '2026-11-15': { sleep: { dur: 400 }, mood: { log: [{ t: '12:30', v: 4 }] } } }, weeks: {} };
+ok(W.rueckblickFaellig(dbw, sun) === '2026-11-09', 'Sonntag 13 Uhr fällig'); ok(W.rueckblickFaellig(dbw, new Date(2026, 10, 15, 11)) === null, 'Sonntag 11 Uhr nicht');
+ok(W.rueckblickFaellig(dbw, new Date(2026, 10, 17, 9)) === '2026-11-09', 'Dienstag Vorwoche'); ok(W.rueckblickFaellig(dbw, new Date(2026, 10, 18, 9)) === null, 'Mittwoch nicht');
+ok(W.erinnerung(W.lage(dbw, sun), sun).art === 'week', 'Erinnerung Rückblick');
+dbw.weeks['2026-11-09'] = { done: true }; ok(W.rueckblickFaellig(dbw, sun) === null, 'erledigt');
+// 6: Erfolg / Erkenntnis
+const lh = d => W.lob(W.lage(Object.assign({}, db2, { hint: d }), at(15)));
+ok(lh({ d: '2026-11-10', fb: ['Koffein vor 12 Uhr. Gut.'], ins: 'X' }).text === 'Koffein vor 12 Uhr. Gut.', 'Erfolg zuerst');
+ok(lh({ d: '2026-11-10', fb: [], ins: 'Mit Sport besser.' }).art === 'ins', 'sonst Erkenntnis');
+ok(lh({ d: '2026-11-09', fb: ['alt'] }).art === 'ok', 'Hinweis von gestern ignoriert');
+ok(W.ersterSatz('Nach 12 Uhr kein Koffein mehr. Sehr gut.') === 'Nach 12 Uhr kein Koffein mehr.', 'erster Satz');
 try { W.leseAntwort('<html>'); ok(false, 'html'); } catch (e) { ok(/Keine Daten/.test(e.message), 'html-Fehler'); }
 try { W.leseAntwort('{"ok":false,"err":"key"}'); ok(false, 'key'); } catch (e) { ok(/Passwort/.test(e.message), 'key-Fehler'); }
 ok(Object.keys(W.leseAntwort(JSON.stringify(db)).days).length === 2, 'volles Backup lesbar');
@@ -28,13 +45,14 @@ ok(Object.keys(W.leseAntwort(JSON.stringify(db)).days).length === 2, 'volles Bac
 // Apps Script: doGet mit nachgebauter Tabelle
 const full = { cfg: { halfLife: 5, limit: 400, habits: db.cfg.habits, coffee: [1, 2, 3] }, days: {} };
 for (let i = 1; i <= 9; i++) full.days['2026-11-0' + i] = { note: 'x' + i };
+full.weeks = { '2026-10-19': { done: 1 }, '2026-10-26': { v: 3 }, '2026-11-02': { done: 1, best: 'x' } };
 const json = JSON.stringify(full), rows = [['Stand', '2026-11-10T08:00:00.000Z'], [json.slice(0, 50), ''], [json.slice(50), '']];
-const ctx = { SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => ({ getDataRange: () => ({ getValues: () => rows }) }) }) },
+const ctx = { SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: n => n === 'Widget' ? { getRange: () => ({ getValue: () => JSON.stringify({ d: 'h' }) }) } : ({ getDataRange: () => ({ getValues: () => rows }) }) }) },
   ContentService: { MimeType: { JSON: 1 }, createTextOutput: t => ({ t, setMimeType() { return this; } }) } };
 vm.createContext(ctx); vm.runInContext(fs.readFileSync(path.join(__dirname, '../sheets-backup.gs'), 'utf8').replace("'HIER-EIGENES-PASSWORT'", "'pw'") + ';this.doGet=doGet', ctx);
 ok(JSON.parse(ctx.doGet({ parameter: { key: 'x' } }).t).err === 'key', 'gs falsches Passwort');
 const a = JSON.parse(ctx.doGet({ parameter: { key: 'pw', w: '1' } }).t);
-ok(a.ok && Object.keys(a.days).join() === '2026-11-06,2026-11-07,2026-11-08,2026-11-09', 'gs letzte 4 Tage');
+ok(a.ok && Object.keys(a.days).length === 9 && a.hint && a.hint.d === 'h' && a.weeks['2026-11-02'].done === true && !a.weeks['2026-10-19'], 'gs Tage, Wochen, Hinweis');
 ok(a.cfg.halfLife === 5 && a.cfg.habits.length === 4 && !a.cfg.coffee && a.stand.startsWith('2026-11-10'), 'gs cfg schlank');
 ok(Object.keys(JSON.parse(ctx.doGet({ parameter: { key: 'pw' } }).t).days).length === 9, 'gs volles Backup wie bisher');
 ok(W.leseAntwort(JSON.stringify(a)).cfg.halfLife === 5, 'Auszug lesbar');

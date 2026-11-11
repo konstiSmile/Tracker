@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.5';
+const VERSION = '2.6';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -146,10 +146,17 @@ async function syncNow(manual) {
   const c = syncCfg(); if (!c.url || !c.key) { if (manual) toast('Erst Adresse und Passwort eintragen'); return; }
   if (!navigator.onLine) { c.pending = 1; localStorage.setItem(SYNC_KEY, JSON.stringify(c)); if (manual) toast('Offline: wird später gesichert'); return; }
   try {
-    await fetch(c.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: c.key, db: DB }) });
+    await fetch(c.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: c.key, db: DB, w: widgetHint() }) });
     c.last = Date.now(); c.pending = 0; localStorage.setItem(SYNC_KEY, JSON.stringify(c));
     if (manual) toast('An Tabelle gesendet');
   } catch (e) { c.pending = 1; localStorage.setItem(SYNC_KEY, JSON.stringify(c)); if (manual) toast('Senden fehlgeschlagen'); }
+}
+/* Für das Scriptable-Widget: heutige Erfolge und Erkenntnis, damit es nicht selbst rechnen muss. Liegt nicht in den Daten. */
+function widgetHint() {
+  const t = todayStr(); let fb = [], ins = null;
+  try { fb = fbList(t).filter(m => !m.all || m.id === 'all5').slice(0, 3).map(m => m.t); } catch (e) { }
+  try { ins = insightFor(t); } catch (e) { }
+  return { d: t, at: Date.now(), fb, ins };
 }
 function syncSoon() { if (!syncCfg().url) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 20000); }
 window.addEventListener('online', () => { if (syncCfg().pending) syncNow(false); });
@@ -612,6 +619,9 @@ function viewSettings() {
     <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
     <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Danach sichert die App ca. 20 Sekunden nach jeder Änderung automatisch.</small>
     <div class="lbl">Gefahrenzone</div><button class="btn danger" data-act="wipe">Alle Daten löschen</button></details>
+  <details class="card"><summary>App-Ideen</summary>
+    <textarea data-cfgt="ideas" placeholder="Was dir für die App einfällt. Eine Idee pro Zeile.">${esc(c.ideas || '')}</textarea>
+    <small class="mut">Nur zum Sammeln, hier wird nichts umgesetzt. Wird mit dem Backup gesichert.</small></details>
   <details class="card"><summary>App</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
     <button class="btn" data-act="update">Nach Update suchen</button>
     <small class="mut">Alle Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.</small></details>`;
@@ -1152,6 +1162,7 @@ document.addEventListener('input', e => {
   if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
   if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v), bx = t.closest('.moodbox'), fe = $('.moodemo', bx); if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; } $('.mlab', bx).textContent = MOOD_N[i - 1] + ' · ' + f1(v); bx.classList.remove('unset', 'idle'); }
+  if (t.dataset.cfgt) { if (t.value.trim()) DB.cfg[t.dataset.cfgt] = t.value; else delete DB.cfg[t.dataset.cfgt]; save(); }
   if (t.dataset.wr && S.wr) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}); if (t.value.trim()) o[t.dataset.wr] = t.value; else delete o[t.dataset.wr]; save(); }
   if (t.dataset.ed && S.ed) S.ed.d[t.dataset.ed] = t.type === 'number' ? Number(t.value) : t.value;
   if (t.dataset.edsz && S.ed && S.ed.d.sizes) { const z = S.ed.d.sizes[+t.dataset.edsz]; if (z) z[t.dataset.p] = t.type === 'number' ? Number(t.value) : t.value; }
