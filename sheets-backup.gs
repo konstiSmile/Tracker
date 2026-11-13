@@ -16,14 +16,15 @@ function doPost(e) {
   for (let i = 0; i < json.length; i += 40000) rows.push([json.slice(i, i + 40000)]);
   raw.clearContents(); raw.getRange(1, 1, rows.length, 2).setValues(rows.map(r => [r[0], r[1] || '']));
   // Tage: eine Zeile pro Tag
-  const t = sheet_('Tage'), head = ['Datum', 'Stimmung', 'Gefühle', 'Ins Bett', 'Aufgewacht', 'Schlafdauer (min)', 'Erholung', 'Schlafscore', 'Ruhepuls', 'Koffein (mg)', 'Getränke', 'Sport', 'Gewohnheiten', 'Notiz'];
-  const cfg = db.cfg || {}, hn = {}; (cfg.habits || []).forEach(h => hn[h.id] = h.name);
+  const t = sheet_('Tage'), head = ['Datum', 'Stimmung', 'Gefühle', 'Ins Bett', 'Aufgewacht', 'Schlafdauer (min)', 'Erholung', 'Schlafscore', 'Ruhepuls', 'Koffein (mg)', 'Getränke', 'Sport', 'Gewohnheiten', 'Gemacht', 'Notiz'];
+  const cfg = db.cfg || {}, hn = {}, an = {}; (cfg.habits || []).forEach(h => hn[h.id] = h.name); (cfg.acts || []).forEach(h => an[h.id] = h.name);
   const data = Object.keys(db.days).sort().map(d => {
     const x = db.days[d], m = x.mood || {}, s = x.sleep || {}, c = x.coffee || [], sp = x.sport || [];
     return [d, m.v || '', (m.tags || []).join(', '), s.bed || '', s.wake || '', s.dur || '', s.q || '', s.score || '', s.rhr || '',
       c.reduce((a, k) => a + (k.mg || 0), 0) || '', c.map(k => (k.t || '') + ' ' + k.name).join('; '),
       sp.map(k => (k.t || '') + ' ' + k.name + (k.min ? ' ' + k.min + ' min' : '')).join('; '),
-      Object.keys(x.habits || {}).map(k => hn[k] || k).join(', '), [x.note, m.note, s.note].filter(Boolean).join(' | ')];
+      Object.keys(x.habits || {}).map(k => hn[k] || k).join(', '),
+      x.did ? [(x.did.t || []).map(k => an[k] || k).join(', '), x.did.note].filter(Boolean).join(' | ') : '', [x.note, m.note, s.note].filter(Boolean).join(' | ')];
   });
   if (b.w) sheet_('Widget').getRange(1, 1, 1, 2).setValues([['Hinweise', JSON.stringify(b.w)]]);   // für das Scriptable-Widget
   t.clearContents(); t.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); t.setFrozenRows(1);

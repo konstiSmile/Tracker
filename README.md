@@ -7,13 +7,14 @@ Live über GitHub Pages: `https://konstiSmile.github.io/Tracker/`
 ## Datenformat (`tracker-v1`)
 ```
 { v:1,
-  cfg:{ v, theme, limit, halfLife, coffee:[{id,name,mg,e,i,sizes?,hid?}], sports:[{id,name,e,i,hid?}], habits:[{id,name,type:'pos'|'neg',e,i,hid?}] },
+  cfg:{ v, theme, acts:[{id,name,i,hid?}], limit, halfLife, coffee:[{id,name,mg,e,i,sizes?,hid?}], sports:[{id,name,e,i,hid?}], habits:[{id,name,type:'pos'|'neg',e,i,hid?}] },
   days:{ "JJJJ-MM-TT":{
     mood:{ v:1-5, tags:[], qa:[{q,a}], note },
     sleep:{ bed:"HH:MM", wake:"HH:MM", dur:min, q:1-5, fall, wakes, morning, score, deep, rem, light, awake, rhr, src, note },
     coffee:[{id,t:"HH:MM",k,name,mg,e,i}],
     sport:[{id,t,name,e,i,c?}],
     habits:{ habitId:1 },
+    did:{ t:[actId], note },
     note } } }
 ```
 Schlaf gehört zum **Tag des Aufwachens**.
@@ -126,3 +127,9 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Widget: fragt erneut nach der Stimmung, wenn der letzte Eintrag 5 h alt ist (bis 21 Uhr, nicht nach dem Check-in); erinnert an den Wochenrückblick (So ab 12 Uhr, Mo/Di für die Vorwoche); zeigt ohne offene Erinnerung einen Erfolg oder eine Erkenntnis. `doGet&w=1` liefert jetzt 10 Tage, die letzten 2 Wochen (`done`) und `hint`.
 - Tests: `node tests/t_widget.js` (48), `tests/t6.py` (Ideen-Kachel).
 
+
+## Version 2.7 (13.11.2026)
+- Abend-Check-in hat jetzt 6 Schritte. Neu als Schritt 3: „Was hast du heute so gemacht?“ mit Kacheln Uni, Arbeit, Erledigungen, Haushalt, Gelesen, Erholung, Prokrastiniert und freiem Textfeld (`day.did = {t:[id], note}`, Liste in `cfg.acts`). Reihenfolge unter der Woche Pflichten zuerst, am Wochenende Erholung zuerst (`actsFor`).
+- Neue Erfolge dazu (Uni-Tage in Folge, Uni und Arbeit, gestern aufgeschoben – heute angepackt, Gelesen in Folge, Erholung als Balance u. a.). Im Abschluss zählen sie als eigene Gruppe neben den Gewohnheiten.
+- Apps Script: neue Spalte „Gemacht“ im Blatt „Tage“.
+- Neues Symbol `koffer` für Arbeit.

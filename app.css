@@ -298,3 +298,6 @@ body.noscroll{overflow:hidden}
 .big.row{gap:var(--s-1)}
 .dhead.wk{display:flex;align-items:center;gap:var(--s-1)}
 .dhead.wk b{display:block;font:var(--fw-serif) var(--fs-2) var(--serif)}
+
+/* 2.7: Freitext unter den Tätigkeiten im Check-in */
+.hgrid + textarea { margin-top: 16px; }

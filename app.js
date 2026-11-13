@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.6';
+const VERSION = '2.7';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -54,6 +54,15 @@ const DEF_CFG = {
     { id: 'fussball', name: 'Fußball', e: '⚽', hid: true }, { id: 'tennis', name: 'Tennis / Badminton', e: '🎾', hid: true },
     { id: 'ski', name: 'Ski / Snowboard', e: '⛷️', hid: true }, { id: 'tanzen', name: 'Tanzen', e: '💃', hid: true },
     { id: 'hiit', name: 'HIIT / Zirkel', e: '🔥', hid: true }
+  ],
+  acts: [
+    { id: 'uni', name: 'Uni', i: 'heft' },
+    { id: 'arbeit', name: 'Arbeit', i: 'koffer' },
+    { id: 'erled', name: 'Erledigungen', i: 'haken' },
+    { id: 'haushalt', name: 'Haushalt', i: 'besen' },
+    { id: 'gelesen', name: 'Gelesen', i: 'lesen' },
+    { id: 'erholung', name: 'Erholung', i: 'stuhl' },
+    { id: 'prokr', name: 'Prokrastiniert', i: 'sanduhr' },
   ],
   habits: [
     { id: 'h1', name: 'Draußen an der Luft', type: 'pos', e: '🌳' },
@@ -414,7 +423,7 @@ function viewHeute() {
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
   const top = (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
-    + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>5 kurze Fragen, etwa 30 Sekunden</small></h3>${gl('right', 'fchev')}</div></section>` : '');
+    + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>6 kurze Fragen, etwa 40 Sekunden</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
   return head + top + order.map(card).join('') + foot;
@@ -638,7 +647,7 @@ function setField(path, val, el) {
   cleanDay(d); save();
   if (s === 'sleep' && (k === 'bed' || k === 'wake')) render();
 }
-function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
+function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
 
 const A = {
   tab(el) { S.tab = el.dataset.v; S.impMsg = ''; scrollTo(0, 0); },
@@ -682,6 +691,7 @@ const A = {
   tag(el) { const o = sec(S.date, 'mood'), t = el.dataset.v, a = o.tags || (o.tags = []); const i = a.indexOf(t); if (i >= 0) a.splice(i, 1); else a.push(t); if (!a.length) delete o.tags; cleanDay(S.date); save(); },
   qnext() { const cur = S.qi[S.date] ?? (parse(S.date).getTime() / 864e5 | 0); S.qi[S.date] = (cur + 1) % QS.length; },
   sfall(el) { chipSet('sleep', 'fall', el); }, swakes(el) { chipSet('sleep', 'wakes', el); }, smorning(el) { chipSet('sleep', 'morning', el); },
+  did(el) { const o = sec(S.date, 'did'), id = el.dataset.id, a = o.t || (o.t = []), k = a.indexOf(id); if (k >= 0) a.splice(k, 1); else a.push(id); if (!a.length) delete o.t; cleanDay(S.date); save(); },
   hab(el) { const D = day(S.date, true), h = D.habits || (D.habits = {}), id = el.dataset.id; if (h[id]) delete h[id]; else h[id] = 1; cleanDay(S.date); save(); },
   cadd(el) {
     const c = DB.cfg.coffee.find(x => x.id === el.dataset.id); if (!c) return 'noRender';
@@ -837,7 +847,7 @@ function fbMark(d, ids) { const s = fbSeen(); s[d] = [...new Set([...(s[d] || []
 /* Alle Meldungen, die zu diesem Tag passen, wichtigste zuerst. a = Bereich, all = darf nach jeder Eingabe erscheinen. */
 function fbList(d) {
   const D = day(d), isT = d === todayStr(), eve = !isT || new Date().getHours() >= 18, out = [];
-  const add = (id, a, t, p, all) => out.push({ id, a, t, p, all });
+  const add = (id, a, t, p, all, g) => out.push({ id, a, t, p, all, g });
   const cof = D.coffee || [], sp = D.sport || [], H = D.habits || {}, m = D.mood || {}, sl = D.sleep || {}, mg = coffeeMg(d), dur = sleepDur(sl), has = Object.keys(D).length > 0;
   const last7 = Array.from({ length: 7 }, (_, i) => addDays(d, -i)), prev7 = last7.map(x => addDays(x, -7)), nn = a => a.filter(x => x != null);
   const posV = DB.cfg.habits.filter(x => x.type === 'pos' && !x.hid), negV = DB.cfg.habits.filter(x => x.type === 'neg' && !x.hid);
@@ -859,6 +869,19 @@ function fbList(d) {
   posV.forEach(x => { const n = H[x.id] ? streak(x, d) : 0; if ([3, 7, 14, 21, 30, 50, 100].includes(n)) add('hs' + x.id + n, 'habit', `${n} Tage in Folge: ${x.name}. Das wird zur Gewohnheit.`, 4); });
   if (eve && has && negV.length && negV.every(x => !H[x.id])) add('hneg', 'habit', 'Heute keine einzige negative Gewohnheit. Das darf man feiern.', 2);
   negV.forEach(x => { const n = eve && !H[x.id] ? streak(x, d) : 0; if ([3, 7, 14, 30].includes(n)) add('hn' + x.id + n, 'habit', `${n} Tage ohne „${x.name}“. Weiter so.`, 3); });
+  // Was gemacht
+  const dt = (D.did || {}).t || [], dh = x => dt.includes(x), da = (id, t, p) => add(id, 'habit', t, p, 0, 'did');
+  if (dh('uni')) { const n = didRun(d, 'uni'), w = last7.filter(x => didHas(x, 'uni')).length;
+    if ([3, 5, 7, 10, 14].includes(n)) da('du' + n, `${n} Uni-Tage in Folge. Du bist richtig gut im Stoff drin.`, 4);
+    else if (w >= 4) da('duw', `${w} Tage mit Uni in den letzten 7. Fleißig.`, 3);
+    else da('du1', 'Heute was für die Uni getan. Jeder Tag zählt.', 1); }
+  if (dh('uni') && dh('arbeit')) da('dua', 'Uni und Arbeit an einem Tag. Ganz schön viel geschafft.', 3);
+  if (!dh('prokr') && didHas(addDays(d, -1), 'prokr') && (dh('uni') || dh('arbeit') || dh('erled'))) da('dpk', 'Gestern aufgeschoben, heute angepackt. Stark.', 4);
+  if (dh('erled')) da('der', 'Erledigungen abgehakt. Eine Sache weniger im Kopf.', 2);
+  if (dh('haushalt')) da('dhh', 'Haushalt gemacht. Ordnung tut gut.', 1);
+  if (dh('gelesen')) { const n = didRun(d, 'gelesen'); da(n >= 3 ? 'dge' + n : 'dge', n >= 3 ? `${n} Tage in Folge gelesen. Schöne Gewohnheit.` : 'Heute gelesen. Gut für den Kopf.', n >= 3 ? 3 : 1); }
+  if (dh('erholung')) da('dho', dh('uni') || dh('arbeit') ? 'Gearbeitet und trotzdem Zeit zum Erholen gefunden. Gute Balance.' : 'Du hast dir Erholung gegönnt. Das ist genauso wichtig.', dh('uni') || dh('arbeit') ? 3 : 1);
+  if (dh('prokr') && dt.length === 1) da('dpr', 'Ehrlich eingetragen. Morgen ist ein neuer Versuch.', 1);
   // Schlaf
   if (dur != null && dur >= 420 && dur <= 540) add('sl7', 'sleep', fmtDur(dur) + ' geschlafen. Genau im guten Bereich.', 2);
   if (sl.q >= 4) add('slq', 'sleep', 'Gut erholt aufgewacht. Schöner Start in den Tag.', 2);
@@ -916,11 +939,18 @@ const insightFor = d => { const a = insights(); return a.length ? a[dn(d) % a.le
 const insBox = d => { const t = insightFor(d); return `<div class="note"><small>Erkenntnis aus deinen Daten</small>${t ? esc(t) : 'Sobald etwa eine Woche zusammen ist, steht hier ein Zusammenhang aus deinen eigenen Einträgen.'}</div>`; };
 
 /* ---------- Abend-Check-in: eine Frage pro Schritt ---------- */
-const CI_N = 5;
+const CI_N = 6;
+const ACT_ORD = { wk: ['uni', 'arbeit', 'erled', 'haushalt', 'gelesen', 'erholung', 'prokr'], we: ['erholung', 'haushalt', 'gelesen', 'erled', 'uni', 'arbeit', 'prokr'] };
+function actsFor(d) {
+  const o = ACT_ORD[[0, 6].includes(parse(d).getDay()) ? 'we' : 'wk'], r = x => { const i = o.indexOf(x.id); return i < 0 ? 99 : i; };
+  return (DB.cfg.acts || DEF_CFG.acts).filter(x => !x.hid).slice().sort((a, b) => r(a) - r(b));
+}
+const didHas = (d, id) => ((day(d).did || {}).t || []).includes(id);
+const didRun = (d, id) => { let n = 0; while (didHas(addDays(d, -n), id) && n < 400) n++; return n; };
 function ciSheet() {
   const d = S.date, D = day(d), i = S.ci.step, isT = d === todayStr(), m = D.mood || {}, H = D.habits || {}, sp = D.sport || [], chk = gl('check', 'chk');
   if (i >= CI_N) {
-    const L = fbList(d).filter((x, k, arr) => arr.findIndex(y => y.a === x.a) === k).slice(0, 3); if (isT) fbMark(d, L.map(x => x.id));
+    const L = fbList(d).filter((x, k, arr) => arr.findIndex(y => (y.g || y.a) === (x.g || x.a)) === k).slice(0, 3); if (isT) fbMark(d, L.map(x => x.id));
     return `<div class="ci-done a-habit"><div class="tile on-g goal">${tile('habit')}</div><h3>Geschafft</h3><span class="mut">${isT ? 'Dein Tag ist eingetragen.' : 'Der Tag ist eingetragen.'}</span></div>
       ${L.map(x => `<div class="fbrow a-${x.a}"><div class="tile on-g">${tile(x.a)}</div><span>${esc(x.t)}</span></div>`).join('')}
       ${insBox(d)}<div class="row ci-nav"><button class="btn pri grow" data-act="sclose">Schließen</button></div>`;
@@ -935,9 +965,13 @@ function ciSheet() {
   } else if (i === 1) {
     b = `<div class="a-mood"><h3>Welche Gefühle passen dazu?</h3><div class="chips">${TAGS.map(t => { const on = (m.tags || []).includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${t}" aria-pressed="${on}"><span>${t}</span>${on ? chk : ''}</button>`; }).join('')}</div></div>`;
   } else if (i === 2) {
+    const dd = D.did || {}, t = dd.t || [];
+    b = `<div class="a-habit"><h3>Was hast du ${isT ? 'heute' : 'an diesem Tag'} so gemacht?</h3><div class="hgrid">${actsFor(d).map(x => { const on = t.includes(x.id); return `<button class="hab pos ${on ? 'on on-g' : ''}" data-act="did" data-id="${x.id}" aria-pressed="${on}">${ic(x.i)}<span>${esc(x.name)}</span>${on ? chk : ''}</button>`; }).join('')}</div>
+      <textarea data-f="did.note" placeholder="Sonst noch was? Frei schreiben …">${esc(dd.note || '')}</textarea></div>`;
+  } else if (i === 3) {
     const g = type => { const v = DB.cfg.habits.filter(h => h.type === type && (!h.hid || H[h.id])); return v.length ? `<div class="hgrid">${v.map(h => `<button class="hab ${h.type} ${H[h.id] ? 'on on-g' : ''}" data-act="hab" data-id="${h.id}" aria-pressed="${!!H[h.id]}">${ic(itIc('habits', h))}<span>${esc(h.name)}</span>${H[h.id] ? chk : ''}</button>`).join('')}</div>` : ''; };
     b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}</div>`;
-  } else if (i === 3) {
+  } else if (i === 4) {
     b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="chips">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="chip ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
   } else {
     const q = QS[(S.qi[d] ?? (parse(d).getTime() / 864e5 | 0)) % QS.length], qa = (m.qa && m.qa[0]) || {};

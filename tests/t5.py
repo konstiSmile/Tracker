@@ -47,13 +47,14 @@ try:
     ins=pg.evaluate("insights()"); chk('Erkenntnis Sport',any('mit Sport' in x and 'höher' in x for x in ins)); print('Erkenntnisse:',ins[:2])
     # Check-in
     pg.evaluate("render()"); pg.click('.cilink'); pg.wait_for_selector('.ci-top')
-    chk('Check-in Schritt 1','1 von 5' in pg.inner_text('#sbody'))
+    chk('Check-in Schritt 1','1 von 6' in pg.inner_text('#sbody'))
     pg.evaluate("v=>{const s=document.querySelector('#sbody .mslider');s.value=v;s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))}",4.3)
     chk('Stimmung im Check-in',pg.evaluate("DB.days[todayStr()].mood.v")==4.3 and '4,3' in pg.inner_text('#sbody .mlab'))
     pg.click('[data-act=cinext]'); pg.click('#sbody [data-v=froh]'); chk('Gefühl gewählt',pg.locator('#sbody .chip.on').count()==1)
+    pg.click('[data-act=cinext]')   # 2.7: Schritt „Was gemacht“
     pg.click('[data-act=cinext]'); pg.click('#sbody .hab[data-id=h2]'); chk('Gewohnheit im Check-in',pg.evaluate("DB.days[todayStr()].habits.h2")==1 and pg.locator('#sbody .hab.on').count()>=1)
     pg.click('[data-act=cinext]'); pg.click('#sbody [data-act=sadd][data-id=laufen]'); chk('Sport im Check-in',pg.evaluate("DB.days[todayStr()].sport.length")==2)
-    pg.click('[data-act=ciprev]'); chk('Zurück','3 von 5' in pg.inner_text('#sbody')); pg.click('[data-act=cinext]')
+    pg.click('[data-act=ciprev]'); chk('Zurück','4 von 6' in pg.inner_text('#sbody')); pg.click('[data-act=cinext]')
     pg.click('[data-act=cinext]'); pg.fill('#sbody textarea','Guter Lauf'); chk('Antwort gespeichert',pg.evaluate("DB.days[todayStr()].mood.qa[0].a")=='Guter Lauf')
     pg.click('[data-act=cinext]')
     chk('Abschluss','Geschafft' in pg.inner_text('#sbody') and pg.locator('#sbody .fbrow').count()>=1 and pg.locator('#sbody .note').count()==1 and pg.evaluate("DB.days[todayStr()].ci")==1)
