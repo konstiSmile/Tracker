@@ -301,3 +301,12 @@ body.noscroll{overflow:hidden}
 
 /* 2.7: Freitext unter den Tätigkeiten im Check-in */
 .hgrid + textarea { margin-top: 16px; }
+
+/* 2.8: Energie, Anspannung, Krank im Check-in */
+.evbox{margin-top:var(--s-3)}
+.evtop{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-2)}
+.evlab{color:var(--ink)}
+.evbox.unset .evlab{color:var(--mut)}
+.mslider.evs{--trk:linear-gradient(90deg,var(--t1),var(--t3))}
+.evbox.unset .mslider.evs{--trk:var(--inset-2)}
+.evsick{margin-top:var(--s-3)}

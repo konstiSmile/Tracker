@@ -15,6 +15,7 @@ Live über GitHub Pages: `https://konstiSmile.github.io/Tracker/`
     sport:[{id,t,name,e,i,c?}],
     habits:{ habitId:1 },
     did:{ t:[actId], note },
+    ev:{ en:1-5, an:1-5, krank:1 },
     note } } }
 ```
 Schlaf gehört zum **Tag des Aufwachens**.
@@ -133,3 +134,7 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Neue Erfolge dazu (Uni-Tage in Folge, Uni und Arbeit, gestern aufgeschoben – heute angepackt, Gelesen in Folge, Erholung als Balance u. a.). Im Abschluss zählen sie als eigene Gruppe neben den Gewohnheiten.
 - Apps Script: neue Spalte „Gemacht“ im Blatt „Tage“.
 - Neues Symbol `koffer` für Arbeit.
+
+## Version 2.8 (15.11.2026)
+- Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
+- Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.

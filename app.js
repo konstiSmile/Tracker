@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.7';
+const VERSION = '2.8';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -647,7 +647,7 @@ function setField(path, val, el) {
   cleanDay(d); save();
   if (s === 'sleep' && (k === 'bed' || k === 'wake')) render();
 }
-function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
+function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did', 'ev'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
 
 const A = {
   tab(el) { S.tab = el.dataset.v; S.impMsg = ''; scrollTo(0, 0); },
@@ -691,6 +691,7 @@ const A = {
   tag(el) { const o = sec(S.date, 'mood'), t = el.dataset.v, a = o.tags || (o.tags = []); const i = a.indexOf(t); if (i >= 0) a.splice(i, 1); else a.push(t); if (!a.length) delete o.tags; cleanDay(S.date); save(); },
   qnext() { const cur = S.qi[S.date] ?? (parse(S.date).getTime() / 864e5 | 0); S.qi[S.date] = (cur + 1) % QS.length; },
   sfall(el) { chipSet('sleep', 'fall', el); }, swakes(el) { chipSet('sleep', 'wakes', el); }, smorning(el) { chipSet('sleep', 'morning', el); },
+  krank() { const o = sec(S.date, 'ev'); if (o.krank) delete o.krank; else o.krank = 1; cleanDay(S.date); save(); },
   did(el) { const o = sec(S.date, 'did'), id = el.dataset.id, a = o.t || (o.t = []), k = a.indexOf(id); if (k >= 0) a.splice(k, 1); else a.push(id); if (!a.length) delete o.t; cleanDay(S.date); save(); },
   hab(el) { const D = day(S.date, true), h = D.habits || (D.habits = {}), id = el.dataset.id; if (h[id]) delete h[id]; else h[id] = 1; cleanDay(S.date); save(); },
   cadd(el) {
@@ -945,6 +946,12 @@ function actsFor(d) {
   const o = ACT_ORD[[0, 6].includes(parse(d).getDay()) ? 'we' : 'wk'], r = x => { const i = o.indexOf(x.id); return i < 0 ? 99 : i; };
   return (DB.cfg.acts || DEF_CFG.acts).filter(x => !x.hid).slice().sort((a, b) => r(a) - r(b));
 }
+const EV = { en: ['Energie', ['erschöpft', 'müde', 'mittel', 'wach', 'voller Energie']], an: ['Anspannung', ['ganz entspannt', 'entspannt', 'mittel', 'angespannt', 'sehr angespannt']] };
+function evBox(D) {
+  const e = D.ev || {}, chk = gl('check', 'chk');
+  return Object.entries(EV).map(([k, [lab, w]]) => `<div class="evbox ${e[k] ? '' : 'unset'}"><div class="evtop"><b>${lab}</b><span class="evlab">${e[k] ? w[e[k] - 1] : 'Regler schieben'}</span></div><input type="range" class="mslider evs" min="1" max="5" step="1" value="${e[k] || 3}" data-rng="ev.${k}" aria-label="${lab} von ${w[0]} bis ${w[4]}"></div>`).join('')
+    + `<div class="chips evsick"><button class="chip ${e.krank ? 'on on-g' : ''}" data-act="krank" aria-pressed="${!!e.krank}"><span>Krank oder Beschwerden</span>${e.krank ? chk : ''}</button></div>`;
+}
 const didHas = (d, id) => ((day(d).did || {}).t || []).includes(id);
 const didRun = (d, id) => { let n = 0; while (didHas(addDays(d, -n), id) && n < 400) n++; return n; };
 function ciSheet() {
@@ -961,7 +968,7 @@ function ciSheet() {
   if (i === 0) {
     const a = moodAct(m), l = moodSorted(m), v = a ? a.v : l.length ? l[l.length - 1].v : 3, n = Math.round(v);
     b = `<div class="a-mood"><h3>Wie geht es dir ${isT ? 'gerade' : 'an diesem Tag'}?</h3><div class="moodbox ${a ? '' : 'unset'}"><div class="moodtop"><span class="moodemo">${face(n)}</span><span class="grow mlab">${a ? MOOD_N[n - 1] + ' · ' + f1(v) : 'Regler schieben'}</span></div>
-      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${v}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>${l.length && !a ? `<small class="hint">Heute schon eingetragen: ${l.map(x => f1(x.v)).join(', ')}. Schieben legt einen weiteren Eintrag an, sonst einfach weiter.</small>` : ''}</div>`;
+      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${v}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>${l.length && !a ? `<small class="hint">Heute schon eingetragen: ${l.map(x => f1(x.v)).join(', ')}. Schieben legt einen weiteren Eintrag an, sonst einfach weiter.</small>` : ''}${evBox(D)}</div>`;
   } else if (i === 1) {
     b = `<div class="a-mood"><h3>Welche Gefühle passen dazu?</h3><div class="chips">${TAGS.map(t => { const on = (m.tags || []).includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${t}" aria-pressed="${on}"><span>${t}</span>${on ? chk : ''}</button>`; }).join('')}</div></div>`;
   } else if (i === 2) {
@@ -1157,6 +1164,7 @@ document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === 
 document.addEventListener('click', e => {
   if (LP.fired) { LP.fired = false; e.preventDefault(); return; }
   if (e.target.dataset && e.target.dataset.rng === 'mood') { moodCommit(e.target); return; }
+  if (e.target.dataset && e.target.dataset.rng && e.target.dataset.rng.startsWith('ev.')) { sec(S.date, 'ev')[e.target.dataset.rng.slice(3)] = Number(e.target.value); save(); const bx = e.target.closest('.evbox'); $('.evlab', bx).textContent = EV[e.target.dataset.rng.slice(3)][1][e.target.value - 1]; bx.classList.remove('unset'); return; }
   const el = e.target.closest('[data-act]'); if (!el) return;
   e.preventDefault();
   const fn = A[el.dataset.act]; if (!fn) return;
@@ -1179,6 +1187,7 @@ function habGoal() { const v = DB.cfg.habits.filter(h => h.type === 'pos' && !h.
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.rng === 'mood') { moodCommit(t); return; }
+  if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { sec(S.date, 'ev')[t.dataset.rng.slice(3)] = Number(t.value); save(); return; }
   if (t.dataset.ed || t.dataset.edsz) return;
   if (t.dataset.f === 'coffeet') { const c = sec(S.date, 'coffee').find(x => x.id === t.dataset.id); if (c) { c.t = t.value || c.t; save(); } return; }
   if (t.dataset.f && t.type !== 'textarea') { setField(t.dataset.f, t.value, t); return; }
@@ -1196,6 +1205,7 @@ document.addEventListener('input', e => {
   if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
   if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v), bx = t.closest('.moodbox'), fe = $('.moodemo', bx); if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; } $('.mlab', bx).textContent = MOOD_N[i - 1] + ' · ' + f1(v); bx.classList.remove('unset', 'idle'); }
+  if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { const bx = t.closest('.evbox'); $('.evlab', bx).textContent = EV[t.dataset.rng.slice(3)][1][t.value - 1]; bx.classList.remove('unset'); }
   if (t.dataset.cfgt) { if (t.value.trim()) DB.cfg[t.dataset.cfgt] = t.value; else delete DB.cfg[t.dataset.cfgt]; save(); }
   if (t.dataset.wr && S.wr) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}); if (t.value.trim()) o[t.dataset.wr] = t.value; else delete o[t.dataset.wr]; save(); }
   if (t.dataset.ed && S.ed) S.ed.d[t.dataset.ed] = t.type === 'number' ? Number(t.value) : t.value;
