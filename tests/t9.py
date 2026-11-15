@@ -1,0 +1,35 @@
+# 2.9: Schritt „Wie war dein Tag?“, Stunden bei Uni/Arbeit, Alkohol/Rauchen entfernt
+import subprocess, time, json
+from playwright.sync_api import sync_playwright
+srv = subprocess.Popen(['python3','-m','http.server','8765'], cwd='/home/claude/tracker', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+res=[]
+old = {'v':1,'cfg':{'v':7,'habits':[{'id':'h1','name':'Draußen an der Luft','type':'pos','e':'🌳'},{'id':'h6','name':'Alkohol','type':'neg','e':'🍺'},{'id':'h16','name':'Rauchen / Nikotin','type':'neg','e':'🚬','hid':True}]},'days':{'2026-11-01':{'habits':{'h6':1}},'2026-11-02':{'habits':{'h6':1,'h1':1}}}}
+with sync_playwright() as p:
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = b.new_context(viewport={'width':390,'height':780}, service_workers='block')
+    ctx.add_init_script("if(!sessionStorage.x){sessionStorage.x=1;localStorage.setItem('tracker-v1', %s)}" % json.dumps(json.dumps(old)))
+    pg = ctx.new_page(); errs=[]; pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(700); pg.evaluate("fbHide()")
+    ids = pg.evaluate("DB.cfg.habits.map(h=>h.id)")
+    res.append(('alkohol/rauchen weg', 'h6' not in ids and 'h16' not in ids and pg.evaluate("DB.cfg.v")==8))
+    res.append(('alte tage bereinigt', pg.evaluate("DB.days['2026-11-01']")==None and pg.evaluate("DB.days['2026-11-02'].habits")=={'h1':1}))
+    pg.evaluate("A.ciopen()"); pg.click('[data-act=cinext]'); pg.click('[data-act=cinext]'); pg.wait_for_timeout(150)
+    res.append(('keine stunden ohne uni', pg.locator('#sbody [data-act=dhrs]').count()==0))
+    pg.click('#sbody [data-act=did][data-id=uni]'); pg.wait_for_timeout(150)
+    res.append(('stunden uni', pg.locator('#sbody [data-act=dhrs][data-id=uni]').count()==4 and pg.locator('#sbody [data-act=dhrs][data-id=arbeit]').count()==0))
+    pg.click('#sbody [data-act=dhrs][data-id=uni][data-v="2"]'); pg.wait_for_timeout(150)
+    res.append(('stunde gespeichert', pg.evaluate("day(todayStr()).did.h")=={'uni':2}))
+    pg.locator('#sheet').screenshot(path='/tmp/ci3b.png')
+    pg.click('#sbody [data-act=did][data-id=uni]'); res.append(('stunde weg mit uni', 'h' not in pg.evaluate("day(todayStr()).did || {}")))
+    pg.click('#sbody [data-act=did][data-id=uni]'); pg.click('[data-act=cinext]'); pg.wait_for_timeout(150)
+    tx = pg.inner_text('#sbody')
+    res.append(('schritt 4', '4 von 7' in tx and 'Wie war dein Tag' in tx and pg.locator('#sbody .evbox').count()==3))
+    pg.locator('#sbody [data-rng="ev.zf"]').evaluate("e=>{e.value=5;e.dispatchEvent(new Event('change',{bubbles:true}))}")
+    pg.click('#sbody [data-act=ja][data-id=dl]'); pg.click('#sbody [data-act=ja][data-id=bild]'); pg.wait_for_timeout(150)
+    ev = pg.evaluate("day(todayStr()).ev"); res.append(('daten', ev=={'zf':5,'dl':1,'bild':1}))
+    pg.locator('#sheet').screenshot(path='/tmp/ci4.png')
+    pg.click('#sbody [data-act=ja][data-id=bild]'); res.append(('ja aus', 'bild' not in pg.evaluate("day(todayStr()).ev")))
+    pg.click('[data-act=cinext]'); res.append(('schritt 5 gewohnheiten', 'geschafft' in pg.inner_text('#sbody')))
+    res.append(('breite', pg.evaluate('document.documentElement.scrollWidth')<=390)); res.append(('fehler', not errs)); print(errs)
+    b.close()
+srv.kill(); print(res); print('OK' if all(r[1] for r in res) else 'FEHLER')

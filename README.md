@@ -14,8 +14,8 @@ Live über GitHub Pages: `https://konstiSmile.github.io/Tracker/`
     coffee:[{id,t:"HH:MM",k,name,mg,e,i}],
     sport:[{id,t,name,e,i,c?}],
     habits:{ habitId:1 },
-    did:{ t:[actId], note },
-    ev:{ en:1-5, an:1-5, krank:1 },
+    did:{ t:[actId], h:{uni:1-4, arbeit:1-4}, note },
+    ev:{ en, an, zf, ko, st: 1-5, krank, dl, ereig, streit, bild, weg: 1 },
     note } } }
 ```
 Schlaf gehört zum **Tag des Aufwachens**.
@@ -138,3 +138,9 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 ## Version 2.8 (15.11.2026)
 - Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
 - Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.
+
+## Version 2.9 (15.11.2026)
+- Check-in hat 7 Schritte. Neu Schritt 4 „Wie war dein Tag?“: Regler Zufriedenheit mit dem Tag (`ev.zf`), Konzentration (`ev.ko`), Stress durch Uni oder Arbeit (`ev.st`, nur wenn Uni/Arbeit angetippt) und Ja-Kacheln Deadline/Prüfung in 7 Tagen (`dl`), Wichtiges Ereignis (`ereig`), Streit oder Konflikt (`streit`), Spät noch am Bildschirm (`bild`), Woanders übernachtet (`weg`).
+- Schritt „Gemacht“: bei Uni und Arbeit ungefähre Dauer in vier Stufen (`did.h`, 1 = unter 1 h, 2 = 1–3 h, 3 = 3–5 h, 4 = über 5 h).
+- Gewohnheiten Alkohol (`h6`) und Rauchen (`h16`) entfernt, auch aus alten Tagen (`cfg.v = 8`).
+- Apps Script: Spalten Uni-Zeit, Arbeitszeit, Zufriedenheit, Konzentration, Stress, Deadline bald, Ereignis, Streit, Bildschirm spät, Woanders.

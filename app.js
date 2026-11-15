@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.8';
+const VERSION = '2.9';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +26,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 6, v: 7, seen: {}, fold: {},
+  theme: 'light', limit: 400, halfLife: 6, v: 8, seen: {}, fold: {},
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -70,7 +70,6 @@ const DEF_CFG = {
     { id: 'h3', name: 'Gelernt / produktiv', type: 'pos', e: '📚' },
     { id: 'h4', name: 'Zeit mit Menschen', type: 'pos', e: '🫶' },
     { id: 'h5', name: 'Zu viel Handy', type: 'neg', e: '📱' },
-    { id: 'h6', name: 'Alkohol', type: 'neg', e: '🍺' },
     { id: 'h7', name: 'Süßes / Junkfood', type: 'neg', e: '🍫' },
     { id: 'h8', name: 'Grübeln / Stress', type: 'neg', e: '🌀' },
     { id: 'h9', name: 'Meditiert / Ruhepause', type: 'pos', e: '🧘', hid: true },
@@ -80,7 +79,6 @@ const DEF_CFG = {
     { id: 'h13', name: 'Aufgeräumt', type: 'pos', e: '🧹', hid: true },
     { id: 'h14', name: 'Kreativ gewesen', type: 'pos', e: '🎨', hid: true },
     { id: 'h15', name: 'Spät gegessen', type: 'neg', e: '🌙', hid: true },
-    { id: 'h16', name: 'Rauchen / Nikotin', type: 'neg', e: '🚬', hid: true },
     { id: 'h17', name: 'Aufgeschoben', type: 'neg', e: '⏳', hid: true },
     { id: 'h18', name: 'Zu lange gesessen', type: 'neg', e: '🪑', hid: true },
     { id: 'h19', name: 'Mahlzeit ausgelassen', type: 'neg', e: '🍽️', hid: true },
@@ -136,7 +134,11 @@ function norm(r) {
   }
   ensureIcons(r.cfg);   // Version 2.0: Zeichnungen statt Emojis
   if (sv < 7 && (r.cfg.halfLife || 5) === 5) r.cfg.halfLife = 6;   // Version 2.2: Standard-Halbwertszeit 6 h (eigene Werte bleiben)
-  r.cfg.v = 7;
+  if (sv < 8) {   // Version 2.9: Alkohol und Rauchen auf Wunsch entfernt (auch aus den Tagen)
+    const weg = ['h6', 'h16']; r.cfg.habits = r.cfg.habits.filter(h => !weg.includes(h.id));
+    Object.keys(r.days).forEach(d => { const D = r.days[d]; if (D.habits) { weg.forEach(k => delete D.habits[k]); if (!Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete r.days[d]; } });
+  }
+  r.cfg.v = 8;
   return r;
 }
 let saveTimer = 0;
@@ -423,7 +425,7 @@ function viewHeute() {
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
   const top = (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
-    + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>6 kurze Fragen, etwa 40 Sekunden</small></h3>${gl('right', 'fchev')}</div></section>` : '');
+    + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>7 kurze Schritte, etwa eine Minute</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
   return head + top + order.map(card).join('') + foot;
@@ -692,7 +694,9 @@ const A = {
   qnext() { const cur = S.qi[S.date] ?? (parse(S.date).getTime() / 864e5 | 0); S.qi[S.date] = (cur + 1) % QS.length; },
   sfall(el) { chipSet('sleep', 'fall', el); }, swakes(el) { chipSet('sleep', 'wakes', el); }, smorning(el) { chipSet('sleep', 'morning', el); },
   krank() { const o = sec(S.date, 'ev'); if (o.krank) delete o.krank; else o.krank = 1; cleanDay(S.date); save(); },
-  did(el) { const o = sec(S.date, 'did'), id = el.dataset.id, a = o.t || (o.t = []), k = a.indexOf(id); if (k >= 0) a.splice(k, 1); else a.push(id); if (!a.length) delete o.t; cleanDay(S.date); save(); },
+  did(el) { const o = sec(S.date, 'did'), id = el.dataset.id, a = o.t || (o.t = []), k = a.indexOf(id); if (k >= 0) { a.splice(k, 1); if (o.h) { delete o.h[id]; if (!Object.keys(o.h).length) delete o.h; } } else a.push(id); if (!a.length) delete o.t; cleanDay(S.date); save(); },
+  dhrs(el) { const o = sec(S.date, 'did'), h = o.h || (o.h = {}), k = el.dataset.id, v = +el.dataset.v; if (h[k] === v) delete h[k]; else h[k] = v; if (!Object.keys(h).length) delete o.h; cleanDay(S.date); save(); },
+  ja(el) { const o = sec(S.date, 'ev'), k = el.dataset.id; if (o[k]) delete o[k]; else o[k] = 1; cleanDay(S.date); save(); },
   hab(el) { const D = day(S.date, true), h = D.habits || (D.habits = {}), id = el.dataset.id; if (h[id]) delete h[id]; else h[id] = 1; cleanDay(S.date); save(); },
   cadd(el) {
     const c = DB.cfg.coffee.find(x => x.id === el.dataset.id); if (!c) return 'noRender';
@@ -940,17 +944,21 @@ const insightFor = d => { const a = insights(); return a.length ? a[dn(d) % a.le
 const insBox = d => { const t = insightFor(d); return `<div class="note"><small>Erkenntnis aus deinen Daten</small>${t ? esc(t) : 'Sobald etwa eine Woche zusammen ist, steht hier ein Zusammenhang aus deinen eigenen Einträgen.'}</div>`; };
 
 /* ---------- Abend-Check-in: eine Frage pro Schritt ---------- */
-const CI_N = 6;
+const CI_N = 7;
 const ACT_ORD = { wk: ['uni', 'arbeit', 'erled', 'haushalt', 'gelesen', 'erholung', 'prokr'], we: ['erholung', 'haushalt', 'gelesen', 'erled', 'uni', 'arbeit', 'prokr'] };
 function actsFor(d) {
   const o = ACT_ORD[[0, 6].includes(parse(d).getDay()) ? 'we' : 'wk'], r = x => { const i = o.indexOf(x.id); return i < 0 ? 99 : i; };
   return (DB.cfg.acts || DEF_CFG.acts).filter(x => !x.hid).slice().sort((a, b) => r(a) - r(b));
 }
-const EV = { en: ['Energie', ['erschöpft', 'müde', 'mittel', 'wach', 'voller Energie']], an: ['Anspannung', ['ganz entspannt', 'entspannt', 'mittel', 'angespannt', 'sehr angespannt']] };
+const EV = { en: ['Energie', ['erschöpft', 'müde', 'mittel', 'wach', 'voller Energie']], an: ['Anspannung', ['ganz entspannt', 'entspannt', 'mittel', 'angespannt', 'sehr angespannt']],
+  zf: ['Zufriedenheit mit dem Tag', ['sehr unzufrieden', 'unzufrieden', 'mittel', 'zufrieden', 'sehr zufrieden']], ko: ['Konzentration', ['sehr zerstreut', 'zerstreut', 'mittel', 'fokussiert', 'sehr fokussiert']],
+  st: ['Stress durch Uni oder Arbeit', ['kein Stress', 'wenig', 'mittel', 'viel', 'sehr viel']] };
+const JA = [['dl', 'Prüfung oder Deadline in ≤ 7 Tagen'], ['ereig', 'Wichtiges Ereignis'], ['streit', 'Streit oder Konflikt'], ['bild', 'Spät noch am Bildschirm'], ['weg', 'Woanders übernachtet']];
+const HRS = ['unter 1 h', '1–3 h', '3–5 h', 'über 5 h'];
+const evRows = (D, keys) => { const e = D.ev || {}; return keys.map(k => { const [lab, w] = EV[k]; return `<div class="evbox ${e[k] ? '' : 'unset'}"><div class="evtop"><b>${lab}</b><span class="evlab">${e[k] ? w[e[k] - 1] : 'Regler schieben'}</span></div><input type="range" class="mslider evs" min="1" max="5" step="1" value="${e[k] || 3}" data-rng="ev.${k}" aria-label="${lab} von ${w[0]} bis ${w[4]}"></div>`; }).join(''); };
 function evBox(D) {
   const e = D.ev || {}, chk = gl('check', 'chk');
-  return Object.entries(EV).map(([k, [lab, w]]) => `<div class="evbox ${e[k] ? '' : 'unset'}"><div class="evtop"><b>${lab}</b><span class="evlab">${e[k] ? w[e[k] - 1] : 'Regler schieben'}</span></div><input type="range" class="mslider evs" min="1" max="5" step="1" value="${e[k] || 3}" data-rng="ev.${k}" aria-label="${lab} von ${w[0]} bis ${w[4]}"></div>`).join('')
-    + `<div class="chips evsick"><button class="chip ${e.krank ? 'on on-g' : ''}" data-act="krank" aria-pressed="${!!e.krank}"><span>Krank oder Beschwerden</span>${e.krank ? chk : ''}</button></div>`;
+  return evRows(D, ['en', 'an']) + `<div class="chips evsick"><button class="chip ${e.krank ? 'on on-g' : ''}" data-act="krank" aria-pressed="${!!e.krank}"><span>Krank oder Beschwerden</span>${e.krank ? chk : ''}</button></div>`;
 }
 const didHas = (d, id) => ((day(d).did || {}).t || []).includes(id);
 const didRun = (d, id) => { let n = 0; while (didHas(addDays(d, -n), id) && n < 400) n++; return n; };
@@ -974,11 +982,16 @@ function ciSheet() {
   } else if (i === 2) {
     const dd = D.did || {}, t = dd.t || [];
     b = `<div class="a-habit"><h3>Was hast du ${isT ? 'heute' : 'an diesem Tag'} so gemacht?</h3><div class="hgrid">${actsFor(d).map(x => { const on = t.includes(x.id); return `<button class="hab pos ${on ? 'on on-g' : ''}" data-act="did" data-id="${x.id}" aria-pressed="${on}">${ic(x.i)}<span>${esc(x.name)}</span>${on ? chk : ''}</button>`; }).join('')}</div>
+      ${['uni', 'arbeit'].filter(k => t.includes(k)).map(k => `<div class="lbl">${k === 'uni' ? 'Uni' : 'Arbeit'} · wie lange etwa?</div><div class="chips hrs">${HRS.map((l, n) => { const on = (dd.h || {})[k] === n + 1; return `<button class="chip ${on ? 'on on-g' : ''}" data-act="dhrs" data-id="${k}" data-v="${n + 1}" aria-pressed="${on}"><span>${l}</span></button>`; }).join('')}</div>`).join('')}
       <textarea data-f="did.note" placeholder="Sonst noch was? Frei schreiben …">${esc(dd.note || '')}</textarea></div>`;
   } else if (i === 3) {
+    const e = D.ev || {}, w = (D.did || {}).t || [];
+    b = `<div class="a-mood"><h3>Wie war dein Tag?</h3>${evRows(D, ['zf', 'ko'].concat(w.includes('uni') || w.includes('arbeit') || e.st ? ['st'] : []))}
+      <div class="chips evsick">${JA.map(([k, l]) => `<button class="chip ${e[k] ? 'on on-g' : ''}" data-act="ja" data-id="${k}" aria-pressed="${!!e[k]}"><span>${l}</span>${e[k] ? chk : ''}</button>`).join('')}</div><small class="hint">Nur antippen, was zutrifft.</small></div>`;
+  } else if (i === 4) {
     const g = type => { const v = DB.cfg.habits.filter(h => h.type === type && (!h.hid || H[h.id])); return v.length ? `<div class="hgrid">${v.map(h => `<button class="hab ${h.type} ${H[h.id] ? 'on on-g' : ''}" data-act="hab" data-id="${h.id}" aria-pressed="${!!H[h.id]}">${ic(itIc('habits', h))}<span>${esc(h.name)}</span>${H[h.id] ? chk : ''}</button>`).join('')}</div>` : ''; };
     b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}</div>`;
-  } else if (i === 4) {
+  } else if (i === 5) {
     b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="chips">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="chip ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
   } else {
     const q = QS[(S.qi[d] ?? (parse(d).getTime() / 864e5 | 0)) % QS.length], qa = (m.qa && m.qa[0]) || {};

@@ -300,7 +300,7 @@ body.noscroll{overflow:hidden}
 .dhead.wk b{display:block;font:var(--fw-serif) var(--fs-2) var(--serif)}
 
 /* 2.7: Freitext unter den Tätigkeiten im Check-in */
-.hgrid + textarea { margin-top: 16px; }
+.hgrid + textarea, .hrs + textarea { margin-top: 16px; }
 
 /* 2.8: Energie, Anspannung, Krank im Check-in */
 .evbox{margin-top:var(--s-3)}
