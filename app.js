@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '2.9';
+const VERSION = '3.0';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -26,7 +26,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 6, v: 8, seen: {}, fold: {},
+  theme: 'light', limit: 400, halfLife: 6, v: 8, seen: {}, fold: {}, wxLoc: 'gps',
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -358,7 +358,8 @@ function viewHeute() {
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">${gl('redo')}<span>${l}</span><small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   const posVis = DB.cfg.habits.filter(h => h.type === 'pos' && !h.hid), posDone = posVis.filter(hOn).length;
   const dot = '<i class="dot"></i>', hintLP = t => DB.cfg.seen.lp ? '' : `<small class="hint">${t}</small>`;
-  const head = `<header class="dhead day"><div class="row"><span class="grow">${isToday ? 'Heute' : `<a href="#" data-act="dtoday">Zu heute</a>`}</span><button data-act="dprev" aria-label="Tag zurück">${gl('left')}</button><button data-act="dnext" aria-label="Tag vor" ${isToday ? 'disabled' : ''}>${gl('right')}</button></div><h1>${esc(label)}</h1></header>`, P = {};
+  const head = `<header class="dhead day"><div class="row dnav">${isToday ? '<span>Heute</span>' : `<a href="#" data-act="dtoday">Zu heute</a>`}<button data-act="dprev" aria-label="Tag zurück">${gl('left')}</button><button data-act="dnext" aria-label="Tag vor" ${isToday ? 'disabled' : ''}>${gl('right')}</button><span class="grow"></span>${wxBtn(d)}</div><h1>${esc(label)}</h1></header>`, P = {};
+  wxLoad();
   P.mood = `
     <div class="moodbox ${mv ? '' : 'unset'} ${mlog.length && !mact ? 'idle' : ''}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow mlab" id="mood-l">${mlab}</span></div>
       <input type="range" class="mslider" min="1" max="5" step="0.1" value="${mact ? mact.v : mlog.length ? mlog[mlog.length - 1].v : 3}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>
@@ -654,6 +655,8 @@ function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', '
 const A = {
   tab(el) { S.tab = el.dataset.v; S.impMsg = ''; scrollTo(0, 0); },
   dprev() { S.date = addDays(S.date, -1); },
+  wxopen() { S.wxs = 1; openSheet(wxSheet()); return 'noRender'; },
+  wxloc(el) { DB.cfg.wxLoc = el.dataset.v; save(); wxLoad(true); $('#sbody').innerHTML = wxSheet(); return 'noRender'; },
   dnext() { if (S.date < todayStr()) S.date = addDays(S.date, 1); },
   dtoday() { S.date = todayStr(); },
   tog(el) { S.open[el.dataset.k] = !S.open[el.dataset.k]; },
@@ -811,7 +814,7 @@ async function checkUpdate(manual) {
   } catch (e) { if (manual) toast('Keine Verbindung: Update-Prüfung nicht möglich'); }
 }
 function autoCheck() { let t = 0; try { t = Number(localStorage.getItem('tracker-upd')) || 0; } catch (e) { } if (Date.now() - t > 10 * 60 * 1000) checkUpdate(false); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoCheck(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { autoCheck(); wxLoad(); } });
 setTimeout(autoCheck, 1500);
 setTimeout(() => fbCheck(), 1200);
 let keepOpen = null;
@@ -821,7 +824,7 @@ function copy(txt, msg) {
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast(msg), fb); else fb();
 }
 function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
-function closeSheet() { $('#sheet').hidden = true; S.sp = null; S.ed = null; S.ci = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
+function closeSheet() { $('#sheet').hidden = true; S.wxs = 0; S.sp = null; S.ed = null; S.ci = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
 
 /* Kleines Menü bei langem Drücken: Bearbeiten, Verstecken, Löschen. Tippen daneben schließt es. */
 function openMenu(kind, id, el) {
@@ -1224,4 +1227,84 @@ document.addEventListener('input', e => {
   if (t.dataset.ed && S.ed) S.ed.d[t.dataset.ed] = t.type === 'number' ? Number(t.value) : t.value;
   if (t.dataset.edsz && S.ed && S.ed.d.sizes) { const z = S.ed.d.sizes[+t.dataset.edsz]; if (z) z[t.dataset.p] = t.type === 'number' ? Number(t.value) : t.value; }
 });
+
+/* Wetter: direkt von Open-Meteo (kostenlos, ohne Schlüssel). Zwischenspeicher tracker-wx, gilt 30 Min. */
+const WX_ORTE = { gps: ['Standort'], muc: ['München', 48.14, 11.58], ros: ['Rosenheim', 47.86, 12.12], gap: ['Garmisch-Partenkirchen', 47.49, 11.10] };
+const WX = { busy: false, c: null };
+function wxCache() { if (!WX.c) { try { WX.c = JSON.parse(localStorage.getItem('tracker-wx')) || {}; } catch (e) { WX.c = {}; } } return WX.c; }
+function wxStore() { try { localStorage.setItem('tracker-wx', JSON.stringify(WX.c)); } catch (e) { } }
+function wxInfo(code, night) {
+  const c = +code;
+  if (c <= 1) return [night ? 'w_moon' : 'w_sun', c ? 'Überwiegend klar' : 'Klar'];
+  if (c === 2) return [night ? 'w_moonc' : 'w_part', 'Teils bewölkt'];
+  if (c === 3) return ['w_cloud', 'Bedeckt'];
+  if (c < 50) return ['w_fog', 'Nebel'];
+  if (c < 60) return ['w_rain', 'Nieselregen'];
+  if (c < 70) return ['w_rain', 'Regen'];
+  if (c < 80) return ['w_snow', 'Schnee'];
+  if (c < 85) return ['w_rain', 'Regenschauer'];
+  if (c < 90) return ['w_snow', 'Schneeschauer'];
+  return ['w_storm', 'Gewitter'];
+}
+function wxPos() {
+  const loc = DB.cfg.wxLoc || 'gps', o = WX_ORTE[loc] || WX_ORTE.muc;
+  if (loc !== 'gps') return Promise.resolve({ lat: o[1], lon: o[2], name: o[0] });
+  const muc = () => ({ lat: 48.14, lon: 11.58, name: 'München', fail: 1 });
+  if (!navigator.geolocation) return Promise.resolve(muc());
+  return new Promise(res => navigator.geolocation.getCurrentPosition(
+    p => res({ lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2), name: 'Aktueller Standort' }),
+    () => res(muc()), { timeout: 10000, maximumAge: 36e5 }));
+}
+async function wxLoad(force) {
+  const c = wxCache(), loc = DB.cfg.wxLoc || 'gps';
+  if (WX.busy || (!force && c.loc === loc && c.data && Date.now() - c.at < 18e5)) return;
+  WX.busy = true;
+  try {
+    const p = await wxPos();
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&timezone=Europe%2FBerlin&past_days=7&forecast_days=8`
+      + '&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,precipitation_probability,weather_code,is_day'
+      + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunshine_duration,sunrise,sunset';
+    const r = await fetch(u, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    WX.c = { loc, at: Date.now(), name: p.name, fail: p.fail || 0, data: await r.json() }; wxStore();
+  } catch (e) { WX.c.err = 1; }
+  WX.busy = false;
+  const b = $('#wxb'); if (b) b.outerHTML = wxBtn(S.date);
+  if (S.wxs) $('#sbody').innerHTML = wxSheet();
+}
+function wxDay(d) {
+  const x = (wxCache().data || {}).daily; if (!x) return null;
+  const i = x.time.indexOf(d); if (i < 0) return null;
+  return { d, code: x.weather_code[i], max: x.temperature_2m_max[i], min: x.temperature_2m_min[i], rain: x.precipitation_sum[i], rp: x.precipitation_probability_max[i], sun: x.sunshine_duration[i], up: x.sunrise[i], down: x.sunset[i] };
+}
+const deg = v => v == null ? '–' : Math.round(v) + '°';
+function wxBtn(d) {
+  const w = wxDay(d);
+  if (!w) return d === todayStr() && WX.busy ? '<button class="wxb" id="wxb" data-act="wxopen" aria-label="Wetter"></button>' : '<i id="wxb" hidden></i>';
+  const [icn, txt] = wxInfo(w.code);
+  return `<button class="wxb" id="wxb" data-act="wxopen" aria-label="Wetter: ${txt}, bis ${deg(w.max)}">${gl(icn)}<b>${deg(w.max)}</b></button>`;
+}
+function wxSheet() {
+  const c = wxCache(), x = c.data, d = S.date, w = wxDay(d), loc = DB.cfg.wxLoc || 'gps', now = new Date();
+  const chips = `<div class="chips wxorte">${Object.keys(WX_ORTE).map(k => `<button class="chip ${loc === k ? 'on' : ''}" data-act="wxloc" data-v="${k}" aria-pressed="${loc === k}">${k === 'gps' ? gl('pin') : ''}<span>${WX_ORTE[k][0]}</span></button>`).join('')}</div>`;
+  const close = '<div class="row ci-nav"><button class="btn pri grow" data-act="sclose">Schließen</button></div>';
+  const title = `<h3>Wetter<span>${parse(d).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span></h3>`;
+  if (!w) return `${title}${chips}<p class="mut">${WX.busy ? 'Wird geladen …' : 'Für diesen Tag gibt es keine Wetterdaten.'}</p>${close}`;
+  const isToday = d === todayStr(), cur = isToday && x.current, [icn, txt] = cur ? wxInfo(cur.weather_code, !cur.is_day) : wxInfo(w.code);
+  const hm = s => s ? s.slice(11, 16) : '–';
+  const big = `<div class="wxbig">${gl(icn)}<div class="grow"><b>${cur ? deg(x.current.temperature_2m) : deg(w.max)}</b><span>${txt}</span></div><div class="wxmm"><span>${deg(w.max)}</span><small>${deg(w.min)}</small></div></div>`;
+  const kv = `<div class="kv"><span>Höchst / Tiefst</span><span>${deg(w.max)} / ${deg(w.min)}</span></div>
+    <div class="kv"><span>Regen</span><span>${w.rain == null ? '–' : String(Math.round(w.rain * 10) / 10).replace('.', ',') + ' mm'}${w.rp != null ? ' · ' + w.rp + ' %' : ''}</span></div>
+    <div class="kv"><span>Sonne</span><span>${w.sun == null ? '–' : String(Math.round(w.sun / 360) / 10).replace('.', ',') + ' h'}</span></div>
+    <div class="kv"><span>Sonnenaufgang</span><span>${hm(w.up)} Uhr</span></div>
+    <div class="kv"><span>Sonnenuntergang</span><span>${hm(w.down)} Uhr</span></div>`;
+  const H = x.hourly, h0 = isToday ? now.getHours() : 6;
+  const hrs = H.time.map((t, i) => [t, i]).filter(([t]) => t.startsWith(d) && +t.slice(11, 13) >= h0);
+  const hours = hrs.length ? `<h4>Stundenverlauf</h4><div class="wxhrs">${hrs.map(([t, i]) => { const [hi] = wxInfo(H.weather_code[i], !H.is_day[i]), p = H.precipitation_probability[i]; return `<div class="${isToday && +t.slice(11, 13) === h0 ? 'now' : ''}"><small>${isToday && +t.slice(11, 13) === h0 ? 'Jetzt' : t.slice(11, 13) + ' Uhr'}</small>${gl(hi)}<b>${deg(H.temperature_2m[i])}</b><small class="rp">${p >= 10 ? p + ' %' : ''}</small></div>`; }).join('')}</div>` : '';
+  const next = [1, 2, 3].map(k => wxDay(addDays(d, k))).filter(Boolean);
+  const days = next.length ? `<h4>Nächste Tage</h4>${next.map(n => { const [ni, nt] = wxInfo(n.code); return `<div class="wxday">${gl(ni)}<span class="grow">${parse(n.d).toLocaleDateString('de-DE', { weekday: 'long' })}<small>${nt}${n.rp >= 10 ? ' · ' + n.rp + ' % Regen' : ''}</small></span><b>${deg(n.max)}</b><small>${deg(n.min)}</small></div>`; }).join('')}` : '';
+  const st = new Date(c.at), foot = `<small class="mut wxfoot">${esc(c.name)}${c.fail && loc === 'gps' ? ' (Standort nicht verfügbar)' : ''} · Open-Meteo · Stand ${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')}</small>`;
+  return `${title}${chips}${big}${kv}${hours}${days}${foot}${close}`;
+}
+
 render();

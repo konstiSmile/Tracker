@@ -139,6 +139,13 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
 - Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.
 
+## Version 3.0 (24.11.2026)
+- Wetter oben rechts auf der Heute-Seite: kleiner Kreis mit Symbol und Höchsttemperatur des angezeigten Tags (bis 7 Tage zurück, sonst ausgeblendet).
+- Antippen öffnet ein Blatt: Ort (aktueller Standort, München, Rosenheim, Garmisch-Partenkirchen; `cfg.wxLoc`), jetzt/Tageswerte, Regen, Sonne, Sonnenauf-/-untergang, Stundenverlauf, nächste 3 Tage.
+- Daten direkt von Open-Meteo (ohne Schlüssel), Zwischenspeicher `tracker-wx` (30 Min., nicht im Backup). Standort ohne Erlaubnis → München.
+- Tagespfeile dezenter neben „Heute“. Service Worker fängt fremde Adressen nicht mehr ab.
+- Test `tests/t10.py`.
+
 ## Version 2.9 (15.11.2026)
 - Check-in hat 7 Schritte. Neu Schritt 4 „Wie war dein Tag?“: Regler Zufriedenheit mit dem Tag (`ev.zf`), Konzentration (`ev.ko`), Stress durch Uni oder Arbeit (`ev.st`, nur wenn Uni/Arbeit angetippt) und Ja-Kacheln Deadline/Prüfung in 7 Tagen (`dl`), Wichtiges Ereignis (`ereig`), Streit oder Konflikt (`streit`), Spät noch am Bildschirm (`bild`), Woanders übernachtet (`weg`).
 - Schritt „Gemacht“: bei Uni und Arbeit ungefähre Dauer in vier Stufen (`did.h`, 1 = unter 1 h, 2 = 1–3 h, 3 = 3–5 h, 4 = über 5 h).
