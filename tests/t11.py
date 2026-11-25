@@ -1,0 +1,30 @@
+# 3.1: Supplemente im Check-in (Schritt Gewohnheiten), Kreatin-Regler 0–20 g, Start 6 g
+import subprocess, time
+from playwright.sync_api import sync_playwright
+srv = subprocess.Popen(['python3','-m','http.server','8765'], cwd='/home/claude/tracker', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+res=[]
+with sync_playwright() as p:
+    b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+    ctx = b.new_context(viewport={'width':390,'height':780}, service_workers='block')
+    pg = ctx.new_page(); errs=[]; pg.on('pageerror', lambda e: errs.append(str(e)))
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(700); pg.evaluate("fbHide()")
+    pg.evaluate("A.ciopen()")
+    for _ in range(4): pg.click('[data-act=cinext]'); pg.wait_for_timeout(100)
+    tx=pg.inner_text('#sbody')
+    res.append(('frage da', '5 von 7' in tx and 'Hast du alle Supplemente genommen?' in tx and 'Magnesiumbisglycinat' in tx))
+    res.append(('kein regler ohne kreatin', pg.locator('#sbody [data-rng="sup.kr"]').count()==0))
+    pg.click('#sbody [data-act=sup][data-id=kr]'); pg.wait_for_timeout(150)
+    r=pg.locator('#sbody [data-rng="sup.kr"]')
+    res.append(('regler 6 g', r.count()==1 and r.get_attribute('max')=='20' and r.input_value()=='6' and pg.evaluate("day(todayStr()).sup")=={'kr':6}))
+    r.evaluate("e=>{e.value=10;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}")
+    res.append(('regler speichert', pg.evaluate("day(todayStr()).sup.kr")==10 and '10 g' in pg.inner_text('#sbody')))
+    pg.click('#sbody [data-act=supall]'); pg.wait_for_timeout(150)
+    res.append(('alle', pg.evaluate("day(todayStr()).sup")=={'kr':10,'vd':1,'b12':1,'mg':1} and pg.locator('#sbody [data-act=supall]').count()==0))
+    pg.locator('#sheet .sheet-body').screenshot(path='/tmp/sup.png')
+    for k in ['vd','b12','mg','kr']: pg.click(f'#sbody [data-act=sup][data-id={k}]'); pg.wait_for_timeout(80)
+    res.append(('aufgeräumt', pg.evaluate("day(todayStr()).sup")==None))
+    res.append(('breite', pg.evaluate("document.querySelector('#sbody').scrollWidth<=document.querySelector('#sbody').clientWidth")))
+    res.append(('fehler', not errs))
+    b.close()
+srv.kill()
+for n,ok in res: print('OK ' if ok else 'FAIL', n)

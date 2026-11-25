@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '3.0';
+const VERSION = '3.1';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -650,7 +650,7 @@ function setField(path, val, el) {
   cleanDay(d); save();
   if (s === 'sleep' && (k === 'bed' || k === 'wake')) render();
 }
-function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did', 'ev'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
+function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did', 'ev', 'sup'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
 
 const A = {
   tab(el) { S.tab = el.dataset.v; S.impMsg = ''; scrollTo(0, 0); },
@@ -700,6 +700,8 @@ const A = {
   did(el) { const o = sec(S.date, 'did'), id = el.dataset.id, a = o.t || (o.t = []), k = a.indexOf(id); if (k >= 0) { a.splice(k, 1); if (o.h) { delete o.h[id]; if (!Object.keys(o.h).length) delete o.h; } } else a.push(id); if (!a.length) delete o.t; cleanDay(S.date); save(); },
   dhrs(el) { const o = sec(S.date, 'did'), h = o.h || (o.h = {}), k = el.dataset.id, v = +el.dataset.v; if (h[k] === v) delete h[k]; else h[k] = v; if (!Object.keys(h).length) delete o.h; cleanDay(S.date); save(); },
   ja(el) { const o = sec(S.date, 'ev'), k = el.dataset.id; if (o[k]) delete o[k]; else o[k] = 1; cleanDay(S.date); save(); },
+  sup(el) { const o = sec(S.date, 'sup'), k = el.dataset.id; if (o[k] != null) delete o[k]; else o[k] = k === 'kr' ? KR_DEF : 1; cleanDay(S.date); save(); },
+  supall() { const o = sec(S.date, 'sup'); SUP.forEach(([k]) => { if (o[k] == null) o[k] = k === 'kr' ? KR_DEF : 1; }); save(); },
   hab(el) { const D = day(S.date, true), h = D.habits || (D.habits = {}), id = el.dataset.id; if (h[id]) delete h[id]; else h[id] = 1; cleanDay(S.date); save(); },
   cadd(el) {
     const c = DB.cfg.coffee.find(x => x.id === el.dataset.id); if (!c) return 'noRender';
@@ -958,6 +960,13 @@ const EV = { en: ['Energie', ['erschöpft', 'müde', 'mittel', 'wach', 'voller E
   st: ['Stress durch Uni oder Arbeit', ['kein Stress', 'wenig', 'mittel', 'viel', 'sehr viel']] };
 const JA = [['dl', 'Prüfung oder Deadline in ≤ 7 Tagen'], ['ereig', 'Wichtiges Ereignis'], ['streit', 'Streit oder Konflikt'], ['bild', 'Spät noch am Bildschirm'], ['weg', 'Woanders übernachtet']];
 const HRS = ['unter 1 h', '1–3 h', '3–5 h', 'über 5 h'];
+const SUP = [['vd', 'Vitamin D'], ['b12', 'Vitamin B12'], ['mg', 'Magnesiumbisglycinat'], ['kr', 'Kreatin']], KR_DEF = 6;
+const krLab = v => String(v).replace('.', ',') + ' g';
+function supBox(D) {
+  const s = D.sup || {}, chk = gl('check', 'chk'), all = SUP.every(([k]) => s[k] != null);
+  return `<div class="lbl">Hast du alle Supplemente genommen?</div><div class="chips sup">${SUP.map(([k, l]) => { const on = s[k] != null; return `<button class="chip ${on ? 'on on-g' : ''}" data-act="sup" data-id="${k}" aria-pressed="${on}"><span>${l}</span>${on ? chk : ''}</button>`; }).join('')}${all ? '' : `<button class="chip new" data-act="supall">${gl('check')}<span>Alle genommen</span></button>`}</div>
+    ${s.kr != null ? `<div class="evbox"><div class="evtop"><b>Kreatin</b><span class="evlab">${krLab(s.kr)}</span></div><input type="range" class="mslider evs" min="0" max="20" step="1" value="${s.kr}" data-rng="sup.kr" aria-label="Kreatin in Gramm, 0 bis 20"></div>` : ''}`;
+}
 const evRows = (D, keys) => { const e = D.ev || {}; return keys.map(k => { const [lab, w] = EV[k]; return `<div class="evbox ${e[k] ? '' : 'unset'}"><div class="evtop"><b>${lab}</b><span class="evlab">${e[k] ? w[e[k] - 1] : 'Regler schieben'}</span></div><input type="range" class="mslider evs" min="1" max="5" step="1" value="${e[k] || 3}" data-rng="ev.${k}" aria-label="${lab} von ${w[0]} bis ${w[4]}"></div>`; }).join(''); };
 function evBox(D) {
   const e = D.ev || {}, chk = gl('check', 'chk');
@@ -993,7 +1002,7 @@ function ciSheet() {
       <div class="chips evsick">${JA.map(([k, l]) => `<button class="chip ${e[k] ? 'on on-g' : ''}" data-act="ja" data-id="${k}" aria-pressed="${!!e[k]}"><span>${l}</span>${e[k] ? chk : ''}</button>`).join('')}</div><small class="hint">Nur antippen, was zutrifft.</small></div>`;
   } else if (i === 4) {
     const g = type => { const v = DB.cfg.habits.filter(h => h.type === type && (!h.hid || H[h.id])); return v.length ? `<div class="hgrid">${v.map(h => `<button class="hab ${h.type} ${H[h.id] ? 'on on-g' : ''}" data-act="hab" data-id="${h.id}" aria-pressed="${!!H[h.id]}">${ic(itIc('habits', h))}<span>${esc(h.name)}</span>${H[h.id] ? chk : ''}</button>`).join('')}</div>` : ''; };
-    b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}</div>`;
+    b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}${supBox(D)}</div>`;
   } else if (i === 5) {
     b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="chips">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="chip ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
   } else {
@@ -1204,6 +1213,7 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.rng === 'mood') { moodCommit(t); return; }
   if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { sec(S.date, 'ev')[t.dataset.rng.slice(3)] = Number(t.value); save(); return; }
+  if (t.dataset.rng === 'sup.kr') { sec(S.date, 'sup').kr = Number(t.value); save(); return; }
   if (t.dataset.ed || t.dataset.edsz) return;
   if (t.dataset.f === 'coffeet') { const c = sec(S.date, 'coffee').find(x => x.id === t.dataset.id); if (c) { c.t = t.value || c.t; save(); } return; }
   if (t.dataset.f && t.type !== 'textarea') { setField(t.dataset.f, t.value, t); return; }
@@ -1221,6 +1231,7 @@ document.addEventListener('input', e => {
   if (t.dataset.sync === 'key') t.closest('.pw').classList.toggle('has', !!t.value);
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
   if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v), bx = t.closest('.moodbox'), fe = $('.moodemo', bx); if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; } $('.mlab', bx).textContent = MOOD_N[i - 1] + ' · ' + f1(v); bx.classList.remove('unset', 'idle'); }
+  if (t.dataset.rng === 'sup.kr') $('.evlab', t.closest('.evbox')).textContent = krLab(t.value);
   if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { const bx = t.closest('.evbox'); $('.evlab', bx).textContent = EV[t.dataset.rng.slice(3)][1][t.value - 1]; bx.classList.remove('unset'); }
   if (t.dataset.cfgt) { if (t.value.trim()) DB.cfg[t.dataset.cfgt] = t.value; else delete DB.cfg[t.dataset.cfgt]; save(); }
   if (t.dataset.wr && S.wr) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}); if (t.value.trim()) o[t.dataset.wr] = t.value; else delete o[t.dataset.wr]; save(); }

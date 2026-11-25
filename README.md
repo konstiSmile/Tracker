@@ -139,6 +139,12 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
 - Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.
 
+## Version 3.1 (25.11.2026)
+- Check-in Schritt 5 (Gewohnheiten): „Hast du alle Supplemente genommen?“ – Vitamin D, Vitamin B12, Magnesiumbisglycinat, Kreatin, dazu „Alle genommen“.
+- Kreatin angetippt → Regler 0–20 g in 1-g-Schritten, Start 6 g (`KR_DEF`).
+- Daten: `day.sup = {vd, b12, mg: 1, kr: Gramm}`; nicht angetippt = fehlt. Noch keine Spalte im Blatt „Tage“ (steht in den Rohdaten).
+- Test `tests/t11.py`.
+
 ## Version 3.0 (24.11.2026)
 - Wetter oben rechts auf der Heute-Seite: kleiner Kreis mit Symbol und Höchsttemperatur des angezeigten Tags (bis 7 Tage zurück, sonst ausgeblendet).
 - Antippen öffnet ein Blatt: Ort (aktueller Standort, München, Rosenheim, Garmisch-Partenkirchen; `cfg.wxLoc`), jetzt/Tageswerte, Regen, Sonne, Sonnenauf-/-untergang, Stundenverlauf, nächste 3 Tage.
