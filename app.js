@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '3.1';
+const VERSION = '3.2';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -20,7 +20,12 @@ const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 
 const MOOD_E = ['😞', '🙁', '😐', '🙂', '😄'];
 const MOOD_N = ['sehr schlecht', 'schlecht', 'okay', 'gut', 'sehr gut'];
 const REST_E = ['😫', '😕', '😐', '🙂', '🤩'];
-const TAGS = ['ruhig', 'froh', 'energiegeladen', 'dankbar', 'müde', 'gestresst', 'ängstlich', 'traurig', 'gereizt', 'einsam'];
+const TAG_G = [['Angenehm', ['froh', 'ruhig', 'motiviert', 'dankbar', 'verbunden', 'stolz', 'zuversichtlich']],
+  ['Unangenehm', ['gestresst', 'überfordert', 'ängstlich', 'traurig', 'gereizt', 'einsam', 'gelangweilt', 'leer']],
+  ['Körper', ['müde', 'Kopfschmerzen', 'verspannt', 'Bauchweh']]];
+const TAGS = TAG_G.flatMap(g => g[1]);
+const KOPF_N = ['ganz leicht', 'leicht', 'mittel', 'stark', 'sehr stark'];
+const EN_N = ['erschöpft', 'müde', 'mittel', 'wach', 'voller Energie'];
 const QS = ['Was hat dir heute gutgetan?', 'Was hat dich heute belastet?', 'Wofür bist du heute dankbar?', 'Was hat dich heute überrascht?', 'Was war der beste Moment des Tages?', 'Was würdest du morgen gern anders machen?', 'Wie viel Energie hattest du, und woran lag es?', 'Mit wem hast du heute gesprochen, und wie war es?', 'Was beschäftigt dich gerade am meisten?', 'Worauf freust du dich?'];
 const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
@@ -178,6 +183,16 @@ const moodSorted = m => moodLog(m).slice().sort((a, b) => (a.t || '').localeComp
 function moodSync(m) { const l = m.log || []; if (l.length) m.v = Math.round(avg(l.map(x => x.v)) * 10) / 10; else { delete m.v; delete m.log; } }
 function moodAct(m) { const a = S.ma; if (!a || a.d !== S.date || Date.now() - a.at > 6e5) return null; return moodLog(m).find(x => x.id === a.id) || null; }
 const day = (d, create) => DB.days[d] || (create ? (DB.days[d] = {}) : {});
+const moodTxt = x => `${MOOD_N[Math.round(x.v) - 1]} · ${f1(x.v)}${x.e ? ' · ' + EN_N[Math.round(x.e) - 1] : ''}`;
+function tagChips(m) {
+  const tg = m.tags || [], chk = gl('check', 'chk'), extra = tg.filter(t => !TAGS.includes(t));
+  const chip = t => { const on = tg.includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${esc(t)}" aria-pressed="${on}"><span>${esc(t)}</span>${on ? chk : ''}</button>`; };
+  return TAG_G.map(([l, a], i) => `<div class="lbl">${l}</div><div class="chips">${(i ? a : a.concat(extra)).map(chip).join('')}</div>${i === 2 && tg.includes('Kopfschmerzen') ? `<div class="evbox"><div class="evtop"><b>Kopfschmerzen</b><span class="evlab">${KOPF_N[(m.kopf || 3) - 1]}</span></div><input type="range" class="mslider evs" min="1" max="5" step="1" value="${m.kopf || 3}" data-rng="mood.kopf" aria-label="Kopfschmerzen von ganz leicht bis sehr stark"></div>` : ''}`).join('');
+}
+function moodField(mlog, mact) {
+  const pts = mlog.map(x => `<i class="mpt ${mact && mact.id === x.id ? 'act' : ''}" style="left:${(x.v - 1) / 4 * 100}%;top:${(5 - (x.e || 3)) / 4 * 100}%;--c:var(--f${Math.round(x.v)})"></i>`).join('');
+  return `<div class="mfield" id="mfield" aria-label="Stimmung und Energie: Finger auflegen, bewegen, loslassen trägt ein"><span class="ax t">voller Energie</span><span class="ax b">erschöpft</span><span class="ax l">schlecht</span><span class="ax r">gut</span>${pts}<i class="mpt live" hidden></i></div>`;
+}
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
 
 /* ---------- Zustand ---------- */
@@ -353,7 +368,7 @@ function viewHeute() {
   const newChip = kind => `<button class="chip new" data-act="edit" data-kind="${kind}" data-id="_new">${gl('plus')}<span>Neu</span></button>`;
   const hidBlock = (k, items, chip, cls = 'chips') => items.length ? `<button class="morehid" data-act="tog" data-k="${k}">${S.open[k] ? 'weniger' : `weitere (${items.length})`}${arrow(S.open[k])}</button>${S.open[k] ? `<div class="${cls}">${items.map(x => chip(x)).join('')}</div>` : ''}` : '';
   const mlog = moodSorted(m), mact = moodAct(m), mv = mact ? mact.v : m.v, mi = mv ? Math.round(mv) : 0;
-  const mlab = mact ? `${mact.t ? mact.t + ' Uhr · ' : ''}${MOOD_N[mi - 1]} · ${f1(mact.v)}` : mlog.length > 1 ? `Ø ${MOOD_N[mi - 1]} · ${f1(mv)}` : mlog.length ? `${MOOD_N[mi - 1]} · ${f1(mv)}` : 'Regler schieben zum Eintragen';
+  const mlab = mact ? `${mact.t ? mact.t + ' Uhr · ' : ''}${moodTxt(mact)}` : mlog.length > 1 ? `Ø ${MOOD_N[mi - 1]} · ${f1(mv)}` : mlog.length ? moodTxt(mlog[0]) : 'Finger aufs Feld legen';
   const srcs = [[addDays(d, -1), isToday ? 'Wie gestern' : 'Wie am Vortag'], [addDays(d, -7), 'Wie letzten ' + parse(d).toLocaleDateString('de-DE', { weekday: 'short' })]];
   const copyBtns = kind => { if ((D[kind] || []).length) return ''; const b = srcs.filter(([x]) => (day(x)[kind] || []).length).map(([x, l]) => `<button class="chip" data-act="copyday" data-kind="${kind}" data-src="${x}">${gl('redo')}<span>${l}</span><small>${day(x)[kind].length}</small></button>`).join(''); return b ? `<div class="chips sub">${b}</div>` : ''; };
   const posVis = DB.cfg.habits.filter(h => h.type === 'pos' && !h.hid), posDone = posVis.filter(hOn).length;
@@ -362,13 +377,12 @@ function viewHeute() {
   wxLoad();
   P.mood = `
     <div class="moodbox ${mv ? '' : 'unset'} ${mlog.length && !mact ? 'idle' : ''}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(mv ? mi : 3)}</span><span class="grow mlab" id="mood-l">${mlab}</span></div>
-      <input type="range" class="mslider" min="1" max="5" step="0.1" value="${mact ? mact.v : mlog.length ? mlog[mlog.length - 1].v : 3}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>
-    ${mlog.length ? `<div class="mlog">${mlog.map(x => { const on = mact && mact.id === x.id, i = Math.round(x.v); return `<div class="ent ${on ? 'act' : ''}"><button class="timebtn t" data-act="tpick" data-t="mood" data-id="${x.id}">${x.t || '–:–'}</button><button class="grow msel" data-act="msel" data-id="${x.id}" aria-pressed="${!!on}">${face(i, 'sm')}<span>${MOOD_N[i - 1]} · ${f1(x.v)}</span></button><button class="x" data-act="mdel" data-id="${x.id}" aria-label="Stimmung löschen">${gl('close')}</button></div>`; }).join('')}</div>
-      ${mact ? `<div class="chips sub"><button class="chip new" data-act="mnew">${gl('plus')}<span>Weitere Stimmung</span></button></div>` : DB.cfg.seen.mood ? '' : `<small class="hint">Regler schieben: weitere Stimmung eintragen. Eintrag antippen: ändern.</small>`}` : ''}
-    <button class="more" data-act="tog" data-k="mood" aria-expanded="${!!moodOpen}"><span>${moodOpen ? 'Weniger' : 'Mehr dazu: Gefühle, Frage, Notiz'}${!moodOpen && (m.tags?.length || qa.a || m.note) ? dot : ''}</span>${arrow(moodOpen)}</button>
+      ${moodField(mlog, mact)}</div>
+    ${mlog.length ? `<div class="mlog">${mlog.map(x => { const on = mact && mact.id === x.id, i = Math.round(x.v); return `<div class="ent ${on ? 'act' : ''}"><button class="timebtn t" data-act="tpick" data-t="mood" data-id="${x.id}">${x.t || '–:–'}</button><button class="grow msel" data-act="msel" data-id="${x.id}" aria-pressed="${!!on}">${face(i, 'sm')}<span>${moodTxt(x)}</span></button><button class="x" data-act="mdel" data-id="${x.id}" aria-label="Stimmung löschen">${gl('close')}</button></div>`; }).join('')}</div>
+      ${mact ? `<div class="chips sub"><button class="chip new" data-act="mnew">${gl('plus')}<span>Weitere Stimmung</span></button></div>` : DB.cfg.seen.mood ? '' : `<small class="hint">Aufs Feld tippen: weitere Stimmung. Eintrag antippen: ändern.</small>`}` : ''}
+    ${tagChips(m)}
+    <button class="more" data-act="tog" data-k="mood" aria-expanded="${!!moodOpen}"><span>${moodOpen ? 'Weniger' : 'Mehr dazu: Frage, Notiz'}${!moodOpen && (qa.a || m.note) ? dot : ''}</span>${arrow(moodOpen)}</button>
     ${moodOpen ? `
-      <div class="lbl">Gefühle</div>
-      <div class="chips">${TAGS.map(t => { const on = (m.tags || []).includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${t}" aria-pressed="${on}"><span>${t}</span>${on ? chk : ''}</button>`; }).join('')}</div>
       <div class="lbl row sb"><span>${esc(q)}</span><button data-act="qnext">andere ${gl('redo')}</button></div>
       <textarea data-f="mood.qa" data-q="${esc(q)}" placeholder="Kurz antworten …">${esc(qa.a || '')}</textarea>
       <div class="lbl">Freie Notiz</div>
@@ -661,7 +675,7 @@ const A = {
   dtoday() { S.date = todayStr(); },
   tog(el) { S.open[el.dataset.k] = !S.open[el.dataset.k]; },
   msel(el) { markSeen('mood'); const on = S.ma && S.ma.id === el.dataset.id && moodAct(day(S.date).mood); S.ma = on ? null : { id: el.dataset.id, d: S.date, at: Date.now() }; },
-  mnew() { S.ma = null; toast('Regler schieben für die nächste Stimmung'); },
+  mnew() { S.ma = null; toast('Aufs Feld tippen für die nächste Stimmung'); },
   mdel(el) { const o = sec(S.date, 'mood'); o.log = moodLog(o).filter(x => x.id !== el.dataset.id); if (S.ma && S.ma.id === el.dataset.id) S.ma = null; moodSync(o); cleanDay(S.date); save(); },
   fold(el) { const k = el.dataset.k, d = S.date; if (k === 'sleep') S.fold[d] = !(S.fold[d] ?? S.slf[d]); else { DB.cfg.fold[k] = !DB.cfg.fold[k]; save(); } },
   fbx() { fbHide(); return 'noRender'; },
@@ -693,7 +707,7 @@ const A = {
     DB.cfg[m.kind] = DB.cfg[m.kind].filter(x => x.id !== m.id); save(); toast('Gelöscht');
   },
   srate(el) { const o = sec(S.date, 'sleep'), v = +el.dataset.v; if (o.q === v) delete o.q; else o.q = v; cleanDay(S.date); save(); },
-  tag(el) { const o = sec(S.date, 'mood'), t = el.dataset.v, a = o.tags || (o.tags = []); const i = a.indexOf(t); if (i >= 0) a.splice(i, 1); else a.push(t); if (!a.length) delete o.tags; cleanDay(S.date); save(); },
+  tag(el) { const o = sec(S.date, 'mood'), t = el.dataset.v, a = o.tags || (o.tags = []); const i = a.indexOf(t); if (i >= 0) a.splice(i, 1); else a.push(t); if (t === 'Kopfschmerzen') { if (i >= 0) delete o.kopf; else o.kopf = 3; } if (!a.length) delete o.tags; cleanDay(S.date); save(); },
   qnext() { const cur = S.qi[S.date] ?? (parse(S.date).getTime() / 864e5 | 0); S.qi[S.date] = (cur + 1) % QS.length; },
   sfall(el) { chipSet('sleep', 'fall', el); }, swakes(el) { chipSet('sleep', 'wakes', el); }, smorning(el) { chipSet('sleep', 'morning', el); },
   krank() { const o = sec(S.date, 'ev'); if (o.krank) delete o.krank; else o.krank = 1; cleanDay(S.date); save(); },
@@ -990,7 +1004,7 @@ function ciSheet() {
     b = `<div class="a-mood"><h3>Wie geht es dir ${isT ? 'gerade' : 'an diesem Tag'}?</h3><div class="moodbox ${a ? '' : 'unset'}"><div class="moodtop"><span class="moodemo">${face(n)}</span><span class="grow mlab">${a ? MOOD_N[n - 1] + ' · ' + f1(v) : 'Regler schieben'}</span></div>
       <input type="range" class="mslider" min="1" max="5" step="0.1" value="${v}" data-rng="mood" aria-label="Stimmung von sehr schlecht bis sehr gut"></div>${l.length && !a ? `<small class="hint">Heute schon eingetragen: ${l.map(x => f1(x.v)).join(', ')}. Schieben legt einen weiteren Eintrag an, sonst einfach weiter.</small>` : ''}${evBox(D)}</div>`;
   } else if (i === 1) {
-    b = `<div class="a-mood"><h3>Welche Gefühle passen dazu?</h3><div class="chips">${TAGS.map(t => { const on = (m.tags || []).includes(t); return `<button class="chip ${on ? 'on' : ''}" data-act="tag" data-v="${t}" aria-pressed="${on}"><span>${t}</span>${on ? chk : ''}</button>`; }).join('')}</div></div>`;
+    b = `<div class="a-mood"><h3>Welche Gefühle passen dazu?</h3>${tagChips(m)}</div>`;
   } else if (i === 2) {
     const dd = D.did || {}, t = dd.t || [];
     b = `<div class="a-habit"><h3>Was hast du ${isT ? 'heute' : 'an diesem Tag'} so gemacht?</h3><div class="hgrid">${actsFor(d).map(x => { const on = t.includes(x.id); return `<button class="hab pos ${on ? 'on on-g' : ''}" data-act="did" data-id="${x.id}" aria-pressed="${on}">${ic(x.i)}<span>${esc(x.name)}</span>${on ? chk : ''}</button>`; }).join('')}</div>
@@ -1175,13 +1189,28 @@ document.addEventListener('pointermove', e => {
 /* Solange die Koffein-Kurve abgetastet wird, scrollt die Seite nicht */
 document.addEventListener('touchmove', e => { if (CG && e.cancelable) e.preventDefault(); }, { passive: false });
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-lp], svg.cgraph')) e.preventDefault(); });
-function moodCommit(t) {
-  const v = Math.round(Number(t.value) * 10) / 10; if (!(v >= 1 && v <= 5)) return;
+function moodCommit(t) { moodSet(Number(t.value)); }
+/* Stimmungsfeld: Finger auflegen und bewegen, erst Loslassen trägt ein */
+const MF = {};
+function mfPos(f, ev) { const r = f.getBoundingClientRect(), x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)); return { x, y, v: 1 + 4 * x, e: 5 - 4 * y }; }
+function mfMove(ev) {
+  const p = mfPos(MF.f, ev), d = $('.mpt.live', MF.f), i = Math.round(p.v);
+  d.hidden = false; d.style.left = p.x * 100 + '%'; d.style.top = p.y * 100 + '%'; d.style.setProperty('--c', `var(--f${i})`); MF.f.classList.add('drag');
+  const bx = MF.f.closest('.moodbox'); bx.classList.remove('unset', 'idle'); const fe = $('#mood-e');
+  if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; }
+  $('#mood-l').textContent = moodTxt({ v: Math.round(p.v * 10) / 10, e: p.e });
+}
+document.addEventListener('pointerdown', ev => { const f = ev.target.closest && ev.target.closest('#mfield'); if (!f) return; ev.preventDefault(); try { f.setPointerCapture(ev.pointerId); } catch (x) { } MF.f = f; MF.id = ev.pointerId; mfMove(ev); });
+document.addEventListener('pointermove', ev => { if (MF.f && ev.pointerId === MF.id) mfMove(ev); });
+document.addEventListener('pointerup', ev => { if (!MF.f || ev.pointerId !== MF.id) return; const p = mfPos(MF.f, ev); MF.f = null; moodSet(p.v, p.e); });
+document.addEventListener('pointercancel', ev => { if (MF.f && ev.pointerId === MF.id) { MF.f = null; render(); } });
+function moodSet(v, en) {
+  v = Math.round(v * 10) / 10; if (!(v >= 1 && v <= 5)) return;
   const o = sec(S.date, 'mood'); let e = moodAct(o);
   if (!o.log) o.log = moodLog(o);
   if (e) e = o.log.find(x => x.id === e.id);
   if (!e) { e = { id: uid(), t: S.date === todayStr() ? nowT() : '', v }; o.log.push(e); if (o.log.length > 2) markSeen('mood'); }
-  e.v = v; S.ma = { id: e.id, d: S.date, at: Date.now() };
+  e.v = v; if (en != null) e.e = Math.round(en * 10) / 10; S.ma = { id: e.id, d: S.date, at: Date.now() };
   moodSync(o); save(); render();
   if (S.ci) $('#sbody').innerHTML = ciSheet(); else fbCheck('mood');
 }
@@ -1214,6 +1243,7 @@ document.addEventListener('change', e => {
   if (t.dataset.rng === 'mood') { moodCommit(t); return; }
   if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { sec(S.date, 'ev')[t.dataset.rng.slice(3)] = Number(t.value); save(); return; }
   if (t.dataset.rng === 'sup.kr') { sec(S.date, 'sup').kr = Number(t.value); save(); return; }
+  if (t.dataset.rng === 'mood.kopf') { sec(S.date, 'mood').kopf = Number(t.value); save(); return; }
   if (t.dataset.ed || t.dataset.edsz) return;
   if (t.dataset.f === 'coffeet') { const c = sec(S.date, 'coffee').find(x => x.id === t.dataset.id); if (c) { c.t = t.value || c.t; save(); } return; }
   if (t.dataset.f && t.type !== 'textarea') { setField(t.dataset.f, t.value, t); return; }
@@ -1232,6 +1262,7 @@ document.addEventListener('input', e => {
   if (t.dataset.f && t.tagName === 'TEXTAREA') setField(t.dataset.f, t.value.trim() ? t.value : '', t);
   if (t.dataset.rng === 'mood') { const v = Number(t.value), i = Math.round(v), bx = t.closest('.moodbox'), fe = $('.moodemo', bx); if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; } $('.mlab', bx).textContent = MOOD_N[i - 1] + ' · ' + f1(v); bx.classList.remove('unset', 'idle'); }
   if (t.dataset.rng === 'sup.kr') $('.evlab', t.closest('.evbox')).textContent = krLab(t.value);
+  if (t.dataset.rng === 'mood.kopf') $('.evlab', t.closest('.evbox')).textContent = KOPF_N[t.value - 1];
   if (t.dataset.rng && t.dataset.rng.startsWith('ev.')) { const bx = t.closest('.evbox'); $('.evlab', bx).textContent = EV[t.dataset.rng.slice(3)][1][t.value - 1]; bx.classList.remove('unset'); }
   if (t.dataset.cfgt) { if (t.value.trim()) DB.cfg[t.dataset.cfgt] = t.value; else delete DB.cfg[t.dataset.cfgt]; save(); }
   if (t.dataset.wr && S.wr) { const o = DB.weeks[S.wr.w] || (DB.weeks[S.wr.w] = {}); if (t.value.trim()) o[t.dataset.wr] = t.value; else delete o[t.dataset.wr]; save(); }

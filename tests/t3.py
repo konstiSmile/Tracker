@@ -20,7 +20,7 @@ try:
         pg.goto('http://localhost:8765/'); pg.wait_for_selector('.card'); pg.add_style_tag(content='#fb{pointer-events:none}')
         T=theme+': '
         # --- Stimmung mehrfach
-        def slide(v): pg.evaluate("v=>{const s=document.querySelector('.mslider');s.value=v;s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))}",v)
+        def slide(v): pg.evaluate("v=>moodSet(v)",v)  # 3.2: Feld statt Regler
         slide(2); 
         chk(T+'1 Eintrag',pg.locator('.mlog .ent').count()==1)
         slide(2.4)

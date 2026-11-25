@@ -139,6 +139,13 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
 - Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.
 
+## Version 3.2 (25.11.2026)
+- Heute → Stimmung: Feld statt Regler (x = Stimmung 1–5, y = Energie 1–5). Finger auflegen, bewegen, erst Loslassen trägt ein; Punkte zeigen die Einträge des Tages.
+- Eintrag speichert zusätzlich `e` (Energie): `mood.log = [{id,t,v,e}]`. Check-in Schritt 1 behält den Regler.
+- Gefühle in Gruppen (Angenehm, Unangenehm, Körper), direkt sichtbar; gleiche Liste im Check-in. Alte Gefühle (z. B. „energiegeladen“) bleiben an alten Tagen sichtbar.
+- „Kopfschmerzen“ → Regler 1–5 (`mood.kopf`, Start 3).
+- Test `tests/t12.py`; `t3.py` nutzt `moodSet`.
+
 ## Version 3.1 (25.11.2026)
 - Check-in Schritt 5 (Gewohnheiten): „Hast du alle Supplemente genommen?“ – Vitamin D, Vitamin B12, Magnesiumbisglycinat, Kreatin, dazu „Alle genommen“.
 - Kreatin angetippt → Regler 0–20 g in 1-g-Schritten, Start 6 g (`KR_DEF`).
