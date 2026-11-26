@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.1';
+const VERSION = '4.1.1';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -380,7 +380,7 @@ function hlFill() {
       const s = hlSleep(x.sleep, d), sl = D.sleep || {};
       if (s && !sl.bed && !sl.wake) { const T = add('s'); T.sleep = Object.assign(T.sleep || {}, s, { src: 'uhr' }); T.sleep.dur = sleepDur(T.sleep); }
     }
-    const num = v => { const n = Number(String(v).replace(',', '.')); return isFinite(n) && n > 0 ? n : null; };
+    const num = v => { const n = parseFloat(String(v).replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return isFinite(n) && n > 0 ? n : null; };
     if (num(x.rhr) && !f.includes('r') && !(D.sleep || {}).rhr) { add('r'); sec(d, 'sleep').rhr = Math.round(num(x.rhr)); }
     if (num(x.hrv) && !f.includes('v') && !(D.sleep || {}).hrv) { add('v'); sec(d, 'sleep').hrv = Math.round(num(x.hrv)); }
     if (num(x.steps) && !f.includes('st') && !D.steps) { const T = add('st'); T.steps = Math.round(num(x.steps)); }
