@@ -9,7 +9,7 @@ def fake(lat):
     return {'current':{'temperature_2m':7.4,'weather_code':2,'is_day':1},
       'daily':{'time':days,'weather_code':[61 if i%2 else 1 for i in range(15)],'temperature_2m_max':[10.6+i for i in range(15)],'temperature_2m_min':[1.2]*15,
         'precipitation_sum':[2.35]*15,'precipitation_probability_max':[40]*15,'sunshine_duration':[14400]*15,'sunrise':[d+'T07:31' for d in days],'sunset':[d+'T16:22' for d in days]},
-      'hourly':{'time':hrs,'temperature_2m':[5]*len(hrs),'precipitation_probability':[30]*len(hrs),'weather_code':[3]*len(hrs),'is_day':[1 if 7<=int(h[11:13])<17 else 0 for h in hrs]}}
+      'hourly':{'time':hrs,'temperature_2m':[5]*len(hrs),'precipitation_probability':[30]*len(hrs),'precipitation':[(0.8 if 14<=int(h[11:13])<17 else 0) for h in hrs],'weather_code':[3]*len(hrs),'is_day':[1 if 7<=int(h[11:13])<17 else 0 for h in hrs]}}
 def route(r):
     q=urllib.parse.parse_qs(urllib.parse.urlparse(r.request.url).query); calls.append(q['latitude'][0])
     r.fulfill(status=200, content_type='application/json', body=json.dumps(fake(q['latitude'][0])), headers={'access-control-allow-origin':'*'})
@@ -25,7 +25,10 @@ with sync_playwright() as p:
     pg.screenshot(path='/tmp/wx_head.png', clip={'x':0,'y':0,'width':390,'height':140})
     pg.click('#app .wxb'); pg.wait_for_timeout(200)
     tx=pg.inner_text('#sbody')
-    res.append(('blatt', all(s in tx for s in ['Aktueller Standort','7°','Teils bewölkt','2,4 mm · 40 %','4 h','07:31','16:22','Stundenverlauf','Jetzt','Nächste Tage'])))
+    res.append(('blatt', all(s in tx for s in ['Aktueller Standort','7°','Teils bewölkt','2,4 mm · 40 %','4 h','07:31','16:22','Stundenverlauf','Jetzt','Weitere Tage','14–17 Uhr · 2,4 mm · 30 %'])))
+    pg.click('#sbody [data-act=wxday] >> text=Morgen'); pg.wait_for_timeout(150); t2=pg.inner_text('#sbody')
+    res.append(('morgen', 'Stundenverlauf' in t2 and '00 Uhr' in t2 and '0,8 mm' in t2 and pg.locator('#sbody .wxrain i').count()==24 and pg.locator('#sbody [data-act=wxday]').count()==3))
+    pg.locator('#sheet .sheet-body').screenshot(path='/tmp/wx_sheet2.png')
     pg.locator('#sheet .sheet-body').screenshot(path='/tmp/wx_sheet.png')
     pg.click('#sbody [data-act=wxloc][data-v=gap]'); pg.wait_for_timeout(500)
     res.append(('ort gewechselt', calls[-1]=='47.49' and 'Garmisch-Partenkirchen ·' in pg.inner_text('#sbody') and pg.evaluate("DB.cfg.wxLoc")=='gap'))

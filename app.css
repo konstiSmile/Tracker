@@ -355,3 +355,14 @@ body.noscroll{overflow:hidden}
 .mpt.act{width:26px;height:26px;margin:-13px 0 0 -13px;opacity:1;box-shadow:0 0 0 3px var(--card)}
 .mpt.live{width:44px;height:44px;margin:-22px 0 0 -22px;opacity:1;box-shadow:0 0 0 4px var(--card),var(--sh-1);z-index:3}
 .mfield.drag .mpt.act{opacity:.35}
+
+/* Wetter Tage + Regen (3.3) */
+.wxtabs{margin:0 0 var(--s-2)}
+.wxtabs .chip.on{background:var(--ink);color:var(--card);box-shadow:none}
+.wxwhen>span:last-child{text-align:right}
+.wxrain{display:flex;align-items:flex-end;gap:2px;height:64px;margin-top:var(--s-1);padding:0 2px;background:linear-gradient(var(--inset-2),var(--inset-2)) bottom/100% 2px no-repeat}
+.wxrain i{flex:1;background:var(--rain,#7C97B8);border-radius:3px 3px 0 0;min-height:0}
+.wxrax{position:relative;height:20px;margin:4px 2px 0;color:var(--mut);font-size:14px}
+.wxrax span{position:absolute;top:0;transform:translateX(-50%)}
+.wxrax span:first-child,.wxrax span:last-child{transform:none}
+[data-theme=dark] .wxrain{--rain:#9DB5D2}

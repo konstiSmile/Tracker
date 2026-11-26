@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '3.2';
+const VERSION = '3.3';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -669,7 +669,8 @@ function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', '
 const A = {
   tab(el) { S.tab = el.dataset.v; S.impMsg = ''; scrollTo(0, 0); },
   dprev() { S.date = addDays(S.date, -1); },
-  wxopen() { S.wxs = 1; openSheet(wxSheet()); return 'noRender'; },
+  wxopen() { S.wxs = 1; S.wxd = null; openSheet(wxSheet()); return 'noRender'; },
+  wxday(el) { S.wxd = el.dataset.d; $('#sbody').innerHTML = wxSheet(); $('#sbody .wxtabs').scrollIntoView({ block: 'nearest' }); return 'noRender'; },
   wxloc(el) { DB.cfg.wxLoc = el.dataset.v; save(); wxLoad(true); $('#sbody').innerHTML = wxSheet(); return 'noRender'; },
   dnext() { if (S.date < todayStr()) S.date = addDays(S.date, 1); },
   dtoday() { S.date = todayStr(); },
@@ -1299,12 +1300,12 @@ function wxPos() {
 }
 async function wxLoad(force) {
   const c = wxCache(), loc = DB.cfg.wxLoc || 'gps';
-  if (WX.busy || (!force && c.loc === loc && c.data && Date.now() - c.at < 18e5)) return;
+  if (WX.busy || (!force && c.loc === loc && c.data && c.data.hourly && c.data.hourly.precipitation && Date.now() - c.at < 18e5)) return;
   WX.busy = true;
   try {
     const p = await wxPos();
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&timezone=Europe%2FBerlin&past_days=7&forecast_days=8`
-      + '&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,precipitation_probability,weather_code,is_day'
+      + '&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day'
       + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,sunshine_duration,sunrise,sunset';
     const r = await fetch(u, { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
@@ -1326,27 +1327,40 @@ function wxBtn(d) {
   const [icn, txt] = wxInfo(w.code);
   return `<button class="wxb" id="wxb" data-act="wxopen" aria-label="Wetter: ${txt}, bis ${deg(w.max)}">${gl(icn)}<b>${deg(w.max)}</b></button>`;
 }
+const mm = v => String(Math.round(v * 10) / 10).replace('.', ',') + ' mm';
+function wxRain(H, sd) {
+  const L = H.time.map((t, i) => ({ h: +t.slice(11, 13), t, mm: (H.precipitation || [])[i] || 0, p: H.precipitation_probability[i] || 0 })).filter(o => o.t.startsWith(sd));
+  const win = []; let w = null;
+  L.forEach(o => { if (o.mm >= 0.1) { if (!w) win.push(w = { a: o.h, b: o.h + 1, mm: 0, p: 0 }); w.b = o.h + 1; w.mm += o.mm; w.p = Math.max(w.p, o.p); } else w = null; });
+  const maxP = Math.max(0, ...L.map(o => o.p)), sc = Math.max(1, ...L.map(o => o.mm));
+  const txt = win.length ? win.map(w => `${w.a}–${w.b} Uhr · ${mm(w.mm)}${w.p ? ' · ' + w.p + ' %' : ''}`).join('<br>') : maxP >= 20 ? `kaum, höchstens ${maxP} %` : 'kein Regen erwartet';
+  const bars = L.length ? `<div class="wxrain" aria-hidden="true">${L.map(o => `<i style="height:${o.mm >= 0.05 ? Math.max(4, o.mm / sc * 100) : 0}%;opacity:${(0.35 + 0.65 * o.p / 100).toFixed(2)}"></i>`).join('')}</div><div class="wxrax"><span style="left:0">0</span><span style="left:25%">6</span><span style="left:50%">12</span><span style="left:75%">18</span><span style="right:0">24 Uhr</span></div>` : '';
+  return { txt, bars, any: win.length };
+}
 function wxSheet() {
-  const c = wxCache(), x = c.data, d = S.date, w = wxDay(d), loc = DB.cfg.wxLoc || 'gps', now = new Date();
+  const c = wxCache(), x = c.data, d = S.date, loc = DB.cfg.wxLoc || 'gps', now = new Date(), td = todayStr();
   const chips = `<div class="chips wxorte">${Object.keys(WX_ORTE).map(k => `<button class="chip ${loc === k ? 'on' : ''}" data-act="wxloc" data-v="${k}" aria-pressed="${loc === k}">${k === 'gps' ? gl('pin') : ''}<span>${WX_ORTE[k][0]}</span></button>`).join('')}</div>`;
   const close = '<div class="row ci-nav"><button class="btn pri grow" data-act="sclose">Schließen</button></div>';
-  const title = `<h3>Wetter<span>${parse(d).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span></h3>`;
-  if (!w) return `${title}${chips}<p class="mut">${WX.busy ? 'Wird geladen …' : 'Für diesen Tag gibt es keine Wetterdaten.'}</p>${close}`;
-  const isToday = d === todayStr(), cur = isToday && x.current, [icn, txt] = cur ? wxInfo(cur.weather_code, !cur.is_day) : wxInfo(w.code);
-  const hm = s => s ? s.slice(11, 16) : '–';
+  if (!wxDay(d)) return `<h3>Wetter</h3>${chips}<p class="mut">${WX.busy ? 'Wird geladen …' : 'Für diesen Tag gibt es keine Wetterdaten.'}</p>${close}`;
+  const tabsD = [0, 1, 2].map(k => addDays(d, k)).filter(wxDay), sd = tabsD.includes(S.wxd) ? S.wxd : d, w = wxDay(sd);
+  const rel = t => t === td ? 'Heute' : t === addDays(td, 1) ? 'Morgen' : t === addDays(td, 2) ? 'Übermorgen' : t === addDays(td, -1) ? 'Gestern' : parse(t).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'numeric' });
+  const title = `<h3>Wetter<span>${parse(sd).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span></h3>`;
+  const tabs = tabsD.length > 1 ? `<div class="chips wxtabs">${tabsD.map(t => `<button class="chip ${t === sd ? 'on' : ''}" data-act="wxday" data-d="${t}" aria-pressed="${t === sd}"><span>${rel(t)}</span></button>`).join('')}</div>` : '';
+  const isToday = sd === td, cur = isToday && x.current, [icn, txt] = cur ? wxInfo(cur.weather_code, !cur.is_day) : wxInfo(w.code);
+  const hm = s => s ? s.slice(11, 16) : '–', H = x.hourly, R = wxRain(H, sd);
   const big = `<div class="wxbig">${gl(icn)}<div class="grow"><b>${cur ? deg(x.current.temperature_2m) : deg(w.max)}</b><span>${txt}</span></div><div class="wxmm"><span>${deg(w.max)}</span><small>${deg(w.min)}</small></div></div>`;
+  const rain = `<h4>Regen</h4><div class="kv"><span>Gesamt</span><span>${w.rain == null ? '–' : mm(w.rain)}${w.rp != null ? ' · ' + w.rp + ' %' : ''}</span></div><div class="kv wxwhen"><span>Wann</span><span>${R.txt}</span></div>${R.any ? R.bars : ''}`;
   const kv = `<div class="kv"><span>Höchst / Tiefst</span><span>${deg(w.max)} / ${deg(w.min)}</span></div>
-    <div class="kv"><span>Regen</span><span>${w.rain == null ? '–' : String(Math.round(w.rain * 10) / 10).replace('.', ',') + ' mm'}${w.rp != null ? ' · ' + w.rp + ' %' : ''}</span></div>
     <div class="kv"><span>Sonne</span><span>${w.sun == null ? '–' : String(Math.round(w.sun / 360) / 10).replace('.', ',') + ' h'}</span></div>
     <div class="kv"><span>Sonnenaufgang</span><span>${hm(w.up)} Uhr</span></div>
     <div class="kv"><span>Sonnenuntergang</span><span>${hm(w.down)} Uhr</span></div>`;
-  const H = x.hourly, h0 = isToday ? now.getHours() : 6;
-  const hrs = H.time.map((t, i) => [t, i]).filter(([t]) => t.startsWith(d) && +t.slice(11, 13) >= h0);
-  const hours = hrs.length ? `<h4>Stundenverlauf</h4><div class="wxhrs">${hrs.map(([t, i]) => { const [hi] = wxInfo(H.weather_code[i], !H.is_day[i]), p = H.precipitation_probability[i]; return `<div class="${isToday && +t.slice(11, 13) === h0 ? 'now' : ''}"><small>${isToday && +t.slice(11, 13) === h0 ? 'Jetzt' : t.slice(11, 13) + ' Uhr'}</small>${gl(hi)}<b>${deg(H.temperature_2m[i])}</b><small class="rp">${p >= 10 ? p + ' %' : ''}</small></div>`; }).join('')}</div>` : '';
-  const next = [1, 2, 3].map(k => wxDay(addDays(d, k))).filter(Boolean);
-  const days = next.length ? `<h4>Nächste Tage</h4>${next.map(n => { const [ni, nt] = wxInfo(n.code); return `<div class="wxday">${gl(ni)}<span class="grow">${parse(n.d).toLocaleDateString('de-DE', { weekday: 'long' })}<small>${nt}${n.rp >= 10 ? ' · ' + n.rp + ' % Regen' : ''}</small></span><b>${deg(n.max)}</b><small>${deg(n.min)}</small></div>`; }).join('')}` : '';
+  const h0 = isToday ? now.getHours() : 0;
+  const hrs = H.time.map((t, i) => [t, i]).filter(([t]) => t.startsWith(sd) && +t.slice(11, 13) >= h0);
+  const hours = hrs.length ? `<h4>Stundenverlauf</h4><div class="wxhrs">${hrs.map(([t, i]) => { const [hi] = wxInfo(H.weather_code[i], !H.is_day[i]), p = H.precipitation_probability[i], r = (H.precipitation || [])[i] || 0, nw = isToday && +t.slice(11, 13) === h0; return `<div class="${nw ? 'now' : ''}"><small>${nw ? 'Jetzt' : t.slice(11, 13) + ' Uhr'}</small>${gl(hi)}<b>${deg(H.temperature_2m[i])}</b><small class="rp">${p >= 10 ? p + ' %' : ''}</small><small class="rp">${r >= 0.1 ? mm(r) : ''}</small></div>`; }).join('')}</div>` : '';
+  const next = [3, 4, 5].map(k => wxDay(addDays(d, k))).filter(Boolean);
+  const days = next.length ? `<h4>Weitere Tage</h4>${next.map(n => { const [ni, nt] = wxInfo(n.code); return `<div class="wxday">${gl(ni)}<span class="grow">${parse(n.d).toLocaleDateString('de-DE', { weekday: 'long' })}<small>${nt}${n.rp >= 10 ? ' · ' + n.rp + ' % Regen' : ''}${n.rain >= 0.1 ? ' · ' + mm(n.rain) : ''}</small></span><b>${deg(n.max)}</b><small>${deg(n.min)}</small></div>`; }).join('')}` : '';
   const st = new Date(c.at), foot = `<small class="mut wxfoot">${esc(c.name)}${c.fail && loc === 'gps' ? ' (Standort nicht verfügbar)' : ''} · Open-Meteo · Stand ${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')}</small>`;
-  return `${title}${chips}${big}${kv}${hours}${days}${foot}${close}`;
+  return `${title}${chips}${tabs}${big}${rain}${hours}<h4>Tag</h4>${kv}${days}${foot}${close}`;
 }
 
 render();

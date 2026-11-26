@@ -139,6 +139,12 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Check-in Schritt 1: zusätzlich Regler **Energie** (erschöpft … voller Energie) und **Anspannung** (ganz entspannt … sehr angespannt), ganze Stufen 1–5, und Knopf „Krank oder Beschwerden“ (`day.ev = {en, an, krank}`). Gedacht als feste Abendbewertung für spätere Auswertungen.
 - Apps Script: Spalten Energie, Anspannung, Krank und **Wetter** (Tageshöchst-/Tiefsttemperatur, Sonnenstunden, Niederschlag, Tageslänge) automatisch von Open-Meteo, Blatt „Wetter“ als Zwischenspeicher, höchstens alle 6 Stunden abgefragt. Ort über `ORT` oben im Skript.
 
+## Version 3.3 (26.11.2026)
+- Wetter-Blatt: Umschalter Heute / Morgen / Übermorgen (vom angezeigten Tag aus), alle Angaben für den gewählten Tag.
+- Neuer Abschnitt „Regen“: Gesamtmenge, Zeitfenster mit Menge und Wahrscheinlichkeit („14–17 Uhr · 2,4 mm · 30 %“), Balken über 24 h (Höhe = mm, Deckkraft = Wahrscheinlichkeit).
+- Stundenverlauf zeigt zusätzlich mm pro Stunde; Abfrage holt dafür `hourly=precipitation` (alter Zwischenspeicher wird neu geladen).
+- „Nächste Tage“ → „Weitere Tage“ (Tag 3–5).
+
 ## Version 3.2 (25.11.2026)
 - Heute → Stimmung: Feld statt Regler (x = Stimmung 1–5, y = Energie 1–5). Finger auflegen, bewegen, erst Loslassen trägt ein; Punkte zeigen die Einträge des Tages.
 - Eintrag speichert zusätzlich `e` (Energie): `mood.log = [{id,t,v,e}]`. Check-in Schritt 1 behält den Regler.
