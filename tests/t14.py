@@ -41,7 +41,7 @@ with sync_playwright() as p:
     res.append(('puls hrv', s.get('rhr') == 52 and s.get('hrv') == 48))
     res.append(('schritte gestern', pg.evaluate(f"day('{Y.isoformat()}').steps") == 8432))
     res.append(('karte weg', 'Daten von der Uhr holen' not in pg.inner_text('#app')))
-    t = pg.inner_text('#app')
+    t = pg.inner_text('#app').replace('\u00a0', ' ')
     res.append(('anzeige schlaf', 'HRV 48 ms' in t and 'Ruhepuls 52' in t and 'Tief 1:00' in t))
     res.append(('vorschlag rad, kraft schon da', 'Von der Uhr' in t and 'Radfahren' in t and '10:15 Uhr · 43 min' in t and pg.locator('[data-act=hwadd]').count() == 1))
     pg.locator('section.a-sport').screenshot(path='/tmp/hlsport.png'); pg.locator('section.a-sleep').screenshot(path='/tmp/hlsleep.png')
