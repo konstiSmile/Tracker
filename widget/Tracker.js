@@ -110,7 +110,7 @@ const ersterSatz = t => { const m = /^(.+?[.!?])(\s|$)/.exec(t); return m ? m[1]
 
 function leseAntwort(text) { // Auszug (w:1) oder komplettes Backup, beides wird verstanden
   let o;
-  try { o = JSON.parse(text); } catch (e) { throw new Error("Keine Daten. Skript neu bereitgestellt? Adresse richtig?"); }
+  try { o = JSON.parse(text); } catch (e) { throw new Error("Keine Daten. Internet da? Sync-Code richtig?"); }
   if (o && o.message) throw new Error("Sync-Code ungültig");
   if (o && o.ok === false) throw new Error(o.err === "key" ? "Passwort stimmt nicht" : "Tabelle ist leer");
   if (!o || !o.days) throw new Error("Tabelle ist leer");
@@ -273,12 +273,12 @@ if (typeof Script !== "undefined") {
       let text;
       try {
         const db = await holeDaten(), l = lage(db, new Date()), e = erinnerung(l, new Date());
-        text = "✅ Verbindung OK\nLetzte Sicherung: " + (db.stand ? hhmm(new Date(db.stand)) + " Uhr (" + tagStr(new Date(db.stand)) + ")" : "unbekannt") +
+        text = "✅ Verbindung OK\nLetzter Abgleich: " + (db.stand ? hhmm(new Date(db.stand)) + " Uhr (" + tagStr(new Date(db.stand)) + ")" : "unbekannt") +
           "\nTage geladen: " + Object.keys(db.days).length +
           "\nHeute: " + l.tassen + " Getränke, " + l.mgHeute + " mg, jetzt ≈ " + l.mgJetzt + " mg" +
           "\nGewohnheiten: " + l.posGetan + "/" + l.posGesamt +
           "\nErinnerung: " + (e ? e.text : "keine") +
-          "\nOhne Erinnerung: " + lob(l).text + (db.hint ? "" : "\n(Keine Hinweise aus der App: Apps Script neu bereitgestellt und App aktualisiert?)");
+          "\nOhne Erinnerung: " + lob(l).text + (db.hint ? "" : "\n(Keine Hinweise aus der App: App auf 4.0 aktualisiert und Sync-Code dort eingetragen?)");
       } catch (e) { text = "❌ " + String(e.message || e); }
       const a = new Alert(); a.title = "Verbindung"; a.message = text; a.addAction("OK"); await a.present();
     } else if (wahl >= 0) {
