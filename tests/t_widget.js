@@ -64,9 +64,9 @@ const Fnt = function () { return el(); }; ['systemFont', 'boldSystemFont', 'medi
 for (const fam of ['small', 'medium', 'accessoryRectangular', 'accessoryInline', 'accessoryCircular']) {
   texts.length = 0; let set = null;
   const sb = { module: undefined, console, Date, Math, JSON, Object, String, encodeURIComponent, Color: C, Font: Fnt, ListWidget: function () { return el(); },
-    config: { runsInWidget: true, widgetFamily: fam }, Keychain: { contains: () => true, get: () => 'https://x/exec' },
+    config: { runsInWidget: true, widgetFamily: fam }, Keychain: { contains: () => true, get: () => 'ABCDEFGHJKMNPQRSTUVW' },
     FileManager: { local: () => ({ joinPath: (a, b) => a + '/' + b, documentsDirectory: () => '/tmp', writeString() {}, fileExists: () => false }) },
-    Request: function (u) { ok(/\?key=.*&w=1$/.test(u), 'url'); return { loadString: async () => JSON.stringify({ ok: true, cfg: db.cfg, days: { [W.tagStr(new Date())]: { coffee: [{ t: '00:00', mg: 80 }] } } }) }; },
+    Request: function (u) { ok(/\/rest\/v1\/rpc\/tr_widget$/.test(u), 'url'); const r = { loadString: async () => (ok(r.method === 'POST' && JSON.parse(r.body).p_code === 'ABCDEFGHJKMNPQRSTUVW' && r.headers.apikey, 'anfrage'), JSON.stringify({ ok: true, cfg: db.cfg, days: { [W.tagStr(new Date())]: { coffee: [{ t: '00:00', mg: 80 }] } } })) }; return r; },
     Script: { setWidget(w) { set = w; }, complete() {} } };
   vm.createContext(sb);
   vm.runInContext('(async()=>{' + fs.readFileSync(path.join(__dirname, '../widget/Tracker.js'), 'utf8') + '})()', sb).then(() => {

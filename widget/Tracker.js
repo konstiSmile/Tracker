@@ -1,6 +1,6 @@
 // Tracker-Widget (Scriptable) – Erinnerung nach Tageszeit, Koffein, Gewohnheiten
-// Daten kommen aus dem Backup in der Google-Tabelle (Apps Script, doGet).
-// Adresse und Passwort liegen im Schlüsselbund von Scriptable, nicht in diesem Skript.
+// Daten kommen seit App 4.0 aus Supabase (Funktion tr_widget), gleiches Format wie früher doGet der Tabelle.
+// Der Sync-Code liegt im Schlüsselbund von Scriptable (tracker_code), nicht in diesem Skript.
 
 // ================= EINSTELLUNGEN =================
 const CONFIG = {
@@ -111,6 +111,7 @@ const ersterSatz = t => { const m = /^(.+?[.!?])(\s|$)/.exec(t); return m ? m[1]
 function leseAntwort(text) { // Auszug (w:1) oder komplettes Backup, beides wird verstanden
   let o;
   try { o = JSON.parse(text); } catch (e) { throw new Error("Keine Daten. Skript neu bereitgestellt? Adresse richtig?"); }
+  if (o && o.message) throw new Error("Sync-Code ungültig");
   if (o && o.ok === false) throw new Error(o.err === "key" ? "Passwort stimmt nicht" : "Tabelle ist leer");
   if (!o || !o.days) throw new Error("Tabelle ist leer");
   return { cfg: o.cfg || {}, days: o.days, weeks: o.weeks || {}, hint: o.hint || null, stand: o.stand || "" };
@@ -120,7 +121,9 @@ if (typeof module !== "undefined") module.exports = { CONFIG, tagStr, zeitpunkt,
 
 // ---------- Scriptable-Teil ----------
 if (typeof Script !== "undefined") {
-  const KEY_URL = "tracker_url", KEY_PW = "tracker_key";
+  // 4.0: Daten aus Supabase (Funktion tr_widget) mit dem Sync-Code der App. Der Code liegt im Schlüsselbund.
+  const KEY_CODE = "tracker_code";
+  const SB_URL = "https://qbdpzamygonpruaafcrt.supabase.co", SB_KEY = "sb_publishable_A7zukzk82Suux8jteQvLGA_WmXnZb14";
   const hhmm = d => pad2(d.getHours()) + ":" + pad2(d.getMinutes());
   const fm = FileManager.local();
   const cachePfad = fm.joinPath(fm.documentsDirectory(), "tracker_cache.json");
@@ -128,22 +131,22 @@ if (typeof Script !== "undefined") {
   async function zugangErfragen() {
     const a = new Alert();
     a.title = "Tracker-Zugang";
-    a.message = "Adresse der Web-App (endet auf /exec) und dein Passwort, beides wie in der Tracker-App unter Backup. Bleibt im Schlüsselbund dieses Geräts.";
-    a.addTextField("https://script.google.com/…/exec", Keychain.contains(KEY_URL) ? Keychain.get(KEY_URL) : "");
-    a.addSecureTextField("Passwort", "");
+    a.message = "Dein Sync-Code aus der Tracker-App (Einstellungen → Sync zwischen Geräten → Code anzeigen). Bleibt im Schlüsselbund dieses Geräts.";
+    a.addSecureTextField("XXXX-XXXX-XXXX-XXXX-XXXX", "");
     a.addAction("Speichern");
     a.addCancelAction("Abbrechen");
     if ((await a.present()) === 0) {
-      const u = a.textFieldValue(0).trim(), k = a.textFieldValue(1).trim();
-      if (u) Keychain.set(KEY_URL, u);
-      if (k) Keychain.set(KEY_PW, k);
+      const c = a.textFieldValue(0).toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (c.length === 20) Keychain.set(KEY_CODE, c);
     }
   }
-  const hatZugang = () => Keychain.contains(KEY_URL) && Keychain.contains(KEY_PW);
+  const hatZugang = () => Keychain.contains(KEY_CODE);
 
   async function holeDaten() {
-    const u = Keychain.get(KEY_URL);
-    const r = new Request(u + (u.indexOf("?") >= 0 ? "&" : "?") + "key=" + encodeURIComponent(Keychain.get(KEY_PW)) + "&w=1");
+    const r = new Request(SB_URL + "/rest/v1/rpc/tr_widget");
+    r.method = "POST";
+    r.headers = { apikey: SB_KEY, "Content-Type": "application/json" };
+    r.body = JSON.stringify({ p_code: Keychain.get(KEY_CODE) });
     r.timeoutInterval = 20;
     return leseAntwort(await r.loadString());
   }

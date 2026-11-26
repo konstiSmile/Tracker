@@ -145,6 +145,16 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Stundenverlauf zeigt zusätzlich mm pro Stunde; Abfrage holt dafür `hourly=precipitation` (alter Zwischenspeicher wird neu geladen).
 - „Nächste Tage“ → „Weitere Tage“ (Tag 3–5).
 
+
+## Version 4.0 (26.11.2026) – Sync über Supabase
+- Einstellungen → „Sync zwischen Geräten“: Sync-Code (20 Zeichen, ohne Konto) erzeugen oder eingeben. Code liegt nur in `tracker-sb` (localStorage), nicht in den Daten.
+- Gespeichert wird pro Tag (`tracker_days`), dazu `tracker_meta` (cfg, weeks, hint fürs Widget). SQL: `supabase/tracker.sql`, Zugriff nur über `tr_pull`, `tr_push`, `tr_widget`, `tr_undo`.
+- Abgleich ca. 3 s nach jeder Änderung und beim Öffnen. Geänderte Tage erkennt die App über Prüfsummen (`h`), Server-Stand je Tag (`u`) schützt vor Überschreiben.
+- Zwei Geräte am selben Tag: Listen (Getränke, Sport, Stimmungseinträge) und fehlende Felder werden zusammengeführt; bei echtem Widerspruch (gleiches Feld, anderer Wert) fragt die App nach (Karte „Unterschiede klären“).
+- Löschschutz: mehr als 3 gelöschte Tage auf einmal werden zurückgehalten („Wiederherstellen“ oder „Auch online löschen“).
+- Google-Tabelle nur noch einmal täglich (erstes Öffnen ab 4 Uhr) plus „Jetzt sichern“.
+- Widget liest aus Supabase (`tr_widget`) mit dem Sync-Code (Schlüsselbund `tracker_code`).
+- Test `tests/t13.py` (braucht lokales PostgreSQL mit `supabase/tracker.sql`).
 ## Version 3.2 (25.11.2026)
 - Heute → Stimmung: Feld statt Regler (x = Stimmung 1–5, y = Energie 1–5). Finger auflegen, bewegen, erst Loslassen trägt ein; Punkte zeigen die Einträge des Tages.
 - Eintrag speichert zusätzlich `e` (Energie): `mood.log = [{id,t,v,e}]`. Check-in Schritt 1 behält den Regler.

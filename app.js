@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '3.3';
+const VERSION = '4.0';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -151,7 +151,7 @@ function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { toast('Speichern nicht möglich (Speicher voll?)'); }
-    syncSoon();
+    sbSoon();
   }, 150);
 }
 /* Tabellen-Backup (Google Apps Script). Adresse und Passwort liegen separat in localStorage, nicht in den Daten. */
@@ -174,9 +174,166 @@ function widgetHint() {
   try { ins = insightFor(t); } catch (e) { }
   return { d: t, at: Date.now(), fb, ins };
 }
-function syncSoon() { if (!syncCfg().url) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(false), 20000); }
-window.addEventListener('online', () => { if (syncCfg().pending) syncNow(false); });
+window.addEventListener('online', () => { if (syncCfg().pending) syncNow(false); sbSoon(500); });
 window.addEventListener('pagehide', () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { } });
+/* ---------- Sync zwischen Geräten (4.0): Supabase, Sync-Code ohne Konto, pro Tag gespeichert ----------
+   tracker-sb (nur auf dem Gerät): code, since (Server-Stand des letzten Abrufs), u[d] (Server-Stand je Tag), h[d] (Prüfsumme der zuletzt abgeglichenen Fassung),
+   mu/mh (dasselbe für cfg, weeks, hint), ask[d] (Widersprüche zum Nachfragen), delHold (Löschungen, die zurückgehalten werden). */
+const SB_URL = 'https://qbdpzamygonpruaafcrt.supabase.co', SB_KEY = 'sb_publishable_A7zukzk82Suux8jteQvLGA_WmXnZb14', SB_LS = 'tracker-sb';
+const SB_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', SB_DERIVED = ['mood.v', 'sleep.dur'];
+const SB = { busy: false, again: false, timer: 0 };
+const sbSt = () => { try { const o = JSON.parse(localStorage.getItem(SB_LS)); return o && typeof o.code === 'string' && o.code.length === 20 ? o : null; } catch (e) { return null; } };
+const sbSave = o => { try { if (o) localStorage.setItem(SB_LS, JSON.stringify(o)); else localStorage.removeItem(SB_LS); } catch (e) { } };
+const sbNewCode = () => { const b = new Uint8Array(20); crypto.getRandomValues(b); let c = ''; for (let i = 0; i < 20; i++) c += SB_ABC[b[i] % SB_ABC.length]; return c; };
+const sbFmt = c => c.replace(/(.{4})(?=.)/g, '$1-');
+const sbNorm = t => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const sbNz = D => D && Object.keys(D).length ? D : undefined;
+const sbStab = o => o === undefined ? 'none' : JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((r, k2) => (r[k2] = v[k2], r), {}) : v);
+const sbHash = o => { if (o === undefined) return 'none'; const s = sbStab(o); let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + '.' + s.length.toString(36); };
+function sbRpc(fn, body) {
+  return fetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.text().then(t => { let j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { } if (!r.ok) throw new Error((j && j.message) || 'HTTP ' + r.status); return j; }));
+}
+/* Zusammenführen zweier Fassungen eines Tages: Listen mit id werden vereinigt, fehlende Felder ergänzt.
+   Haben beide Geräte dasselbe Feld unterschiedlich gesetzt, ist das ein Widerspruch (asks) – vorläufig gilt dieses Gerät. */
+function sbMerge(a, b, p, asks) {
+  if (sbStab(a) === sbStab(b)) return a;
+  if (a === undefined || a === null) return b;
+  if (b === undefined || b === null) return a;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    const all = a.concat(b);
+    if (all.every(x => x && typeof x === 'object' && x.id)) { const r = a.slice(); b.forEach(x => { if (!r.some(y => y.id === x.id)) r.push(x); }); return r; }
+    if (all.every(x => x === null || typeof x !== 'object')) return [...new Set(all)];
+  } else if (typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
+    const r = {}; new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => { const v = sbMerge(a[k], b[k], p ? p + '.' + k : k, asks); if (v !== undefined) r[k] = v; }); return r;
+  }
+  if (!SB_DERIVED.includes(p)) asks.push({ p, a, b });
+  return a;
+}
+function sbFix(D) { if (D.mood && D.mood.log) moodSync(D.mood); if (D.sleep && D.sleep.bed && D.sleep.wake) D.sleep.dur = sleepDur(D.sleep); return D; }
+const sbMergeDay = (a, b, asks) => sbFix(sbMerge(JSON.parse(JSON.stringify(a)), b, '', asks));
+function sbSetPath(o, p, v) { const ks = p.split('.'); let x = o; ks.slice(0, -1).forEach(k => { x = x[k] = x[k] || {}; }); x[ks[ks.length - 1]] = v; }
+/* Abgerufene Tage übernehmen. Rückgabe: ob sich lokal etwas geändert hat. */
+function sbApply(st, days, meta, full) {
+  let ch = false; st.ask = st.ask || {};
+  const put = (d, v) => { if (sbStab(sbNz(DB.days[d])) !== sbStab(v)) ch = true; if (v === undefined) delete DB.days[d]; else DB.days[d] = v; };
+  days.forEach(x => {
+    const d = x.d, loc = sbNz(DB.days[d]), rem = x.del ? undefined : sbNz(x.data), dirty = sbHash(loc) !== (st.h[d] || 'none');
+    if (!full && x.u === st.u[d]) return;            // diese Fassung kennt das Gerät schon (Überlappung beim Abruf)
+    if (!dirty || sbStab(loc) === sbStab(rem) || loc === undefined) {   // hier unverändert, gleich, oder hier gelöscht und dort geändert → Serverfassung
+      put(d, rem); st.u[d] = x.u; st.h[d] = sbHash(rem); delete st.ask[d]; return;
+    }
+    st.u[d] = x.u;                                    // Stand merken, damit das Senden danach nicht als Konflikt gilt
+    if (rem === undefined) return;                    // dort gelöscht, hier geändert → hier behalten
+    const asks = [], m = sbMergeDay(loc, rem, asks);
+    if (asks.length) { st.ask[d] = { u: x.u, rem }; return; }
+    put(d, m);                                        // bleibt „geändert“ und wird zusammengeführt gesendet
+  });
+  ['cfg', 'weeks'].forEach(k => {
+    const x = meta[k]; if (!x || !x.data) return;
+    const dirty = sbHash(DB[k]) !== st.mh[k];
+    if (!dirty || sbStab(DB[k]) === sbStab(x.data)) {
+      const v = k === 'cfg' ? norm({ v: 1, days: {}, weeks: {}, cfg: x.data }).cfg : x.data;
+      if (sbStab(DB[k]) !== sbStab(v)) ch = true;
+      DB[k] = v; st.mh[k] = sbHash(x.data);
+    } else if (k === 'weeks') { DB.weeks = Object.assign({}, x.data, DB.weeks); ch = true; }   // Wochen vereinigen, bei gleicher Woche gilt dieses Gerät
+    st.mu[k] = x.u;                                   // Einstellungen: bei beidseitiger Änderung gilt dieses Gerät
+  });
+  return ch;
+}
+function sbCollect(st, force) {
+  const days = [], hs = {}, dels = [], ask = st.ask || {};
+  new Set([...Object.keys(DB.days), ...Object.keys(st.h)]).forEach(d => {
+    if (ask[d]) return;
+    const D = sbNz(DB.days[d]), h = sbHash(D);
+    if (h === (st.h[d] || 'none')) return;
+    if (D) days.push({ d, data: D, base: st.u[d] || null }); else { days.push({ d, del: true, base: st.u[d] || null }); dels.push(d); }
+    hs[d] = h;
+  });
+  let send = days;
+  if (dels.length > 3 && !force) { st.delHold = dels.sort(); send = days.filter(x => !x.del); } else delete st.delHold;
+  send = send.slice(0, 200);
+  const meta = {}, mhs = {};
+  if (!st.delHold) ['cfg', 'weeks'].forEach(k => { const h = sbHash(DB[k]); if (h !== st.mh[k]) { meta[k] = { data: DB[k], base: st.mu[k] || null }; mhs[k] = h; } });
+  let hint = null; try { hint = widgetHint(); } catch (e) { }
+  if (hint) { const hh = sbHash(Object.assign({}, hint, { at: 0 })); if (hh !== st.mh.hint) { meta.hint = { data: hint }; mhs.hint = hh; } }
+  if (!send.length && !Object.keys(meta).length) return null;
+  return { days: send, meta, hs, mhs };
+}
+async function sbRun(opts = {}) {
+  let st = sbSt(); if (!st || !navigator.onLine) return;
+  if (SB.busy) { SB.again = true; return; }
+  SB.busy = true; let changed = false;
+  const held = (st.delHold || []).length;
+  try {
+    st.u = st.u || {}; st.h = st.h || {}; st.mu = st.mu || {}; st.mh = st.mh || {};
+    const since = opts.full || !st.since ? null : new Date(new Date(st.since).getTime() - 60000).toISOString();
+    const r = await sbRpc('tr_pull', { p_code: st.code, p_since: since });
+    changed = sbApply(st, r.days || [], r.meta || {}, opts.full);
+    st.since = r.now;
+    for (let i = 0; i < 10; i++) {
+      const pay = sbCollect(st, opts.force); if (!pay) break;
+      const res = await sbRpc('tr_push', { p_code: st.code, p_days: pay.days, p_meta: pay.meta, p_force: !!opts.force });
+      (res.ok || []).forEach(o => { st.u[o.d] = o.u; st.h[o.d] = pay.hs[o.d]; });
+      Object.entries(res.meta_ok || {}).forEach(([k, u]) => { st.mu[k] = u; st.mh[k] = pay.mhs[k]; });
+      const conf = res.conflicts || [], mconf = res.meta_conflicts || {};
+      if (conf.length || Object.keys(mconf).length) changed = sbApply(st, conf, mconf) || changed;
+      else if (pay.days.length < 200) break;
+    }
+    st.last = Date.now(); delete st.err;
+  } catch (e) { st.err = String(e.message || e); }
+  finally {
+    if (sbSt()) sbSave(st);   // nicht wieder anlegen, wenn in der Zwischenzeit getrennt wurde
+    SB.busy = false;
+    if (changed) { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { } }
+    const a = document.activeElement, typing = a && /^(INPUT|TEXTAREA)$/.test(a.tagName);
+    if ((changed || opts.ui || (st.delHold || []).length !== held) && $('#sheet').hidden && !typing) render();
+    if ((st.delHold || []).length && !held) toast('Gelöschte Tage wurden online noch nicht gelöscht, siehe Einstellungen');
+    if (SB.again) { SB.again = false; sbSoon(800); }
+    syncDaily();
+  }
+}
+function sbSoon(ms = 3000) { if (!sbSt()) return; clearTimeout(SB.timer); SB.timer = setTimeout(() => sbRun(), ms); }
+const sbAskDays = () => { const st = sbSt(); return st && st.ask ? Object.keys(st.ask).sort() : []; };
+/* Widersprüche je Tag neu berechnen (der Tag kann sich hier inzwischen geändert haben) */
+function sbAsks(d) { const st = sbSt(), x = st && st.ask && st.ask[d]; if (!x) return []; const asks = []; sbMergeDay(sbNz(DB.days[d]) || {}, x.rem, asks); return asks; }
+function sbLabel(p) {
+  const L = { 'sleep.bed': 'Ins Bett', 'sleep.wake': 'Aufgewacht', 'sleep.score': 'Schlafscore', 'sleep.rhr': 'Ruhepuls', 'sleep.q': 'Erholung', 'sleep.deep': 'Tiefschlaf (min)', 'sleep.rem': 'REM (min)', 'sleep.light': 'Leichtschlaf (min)', 'sleep.awake': 'Wach (min)', note: 'Tagesnotiz', ci: 'Check-in', 'mood.note': 'Notiz zur Stimmung', 'mood.kopf': 'Kopfschmerzen', 'mood.qa': 'Frage des Tages', 'did.note': 'Gemacht · Notiz', 'did.h.uni': 'Uni-Zeit', 'did.h.arbeit': 'Arbeitszeit', 'sup.kr': 'Kreatin (g)' };
+  if (L[p]) return L[p];
+  const [s, k] = p.split('.');
+  if (s === 'habits') { const h = DB.cfg.habits.find(x => x.id === k); return h ? h.name : 'Gewohnheit'; }
+  if (s === 'ev') { if (typeof EV !== 'undefined' && EV[k]) return EV[k][0]; const j = JA.find(x => x[0] === k); if (j) return j[1]; }
+  if (s === 'sup') { const j = SUP.find(x => x[0] === k); if (j) return j[1]; }
+  return ({ sleep: 'Schlaf', mood: 'Stimmung', did: 'Gemacht', ev: 'Tag', sup: 'Supplemente' }[s] || s) + (k ? ' · ' + k : '');
+}
+const sbVal = v => v === undefined || v === null || v === '' ? '–' : Array.isArray(v) ? v.map(sbVal).join(', ') : typeof v === 'object' ? (v.a || v.name || '…') : v === true ? 'ja' : String(v);
+function sbAskSheet() {
+  const ds = sbAskDays(); if (!ds.length) return '<h3>Alles abgeglichen</h3><div class="row ci-nav"><button class="btn pri grow" data-act="sclose">Schließen</button></div>';
+  const P = S.sbPick = S.sbPick || {};
+  return `<h3>Auf zwei Geräten verschieden eingetragen</h3><p class="mut">Tippe jeweils an, welcher Wert stimmt.</p>` + ds.map(d => {
+    const lab = parse(d).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    return `<div class="lbl">${lab}</div>` + sbAsks(d).map(q => { const cur = (P[d] || {})[q.p];
+      return `<div class="sbq"><div>${esc(sbLabel(q.p))}</div><div class="chips">${[['a', 'Dieses Gerät', q.a], ['b', 'Anderes Gerät', q.b]].map(([v, t, x]) => `<button class="chip ${cur === v ? 'on' : ''}" data-act="sbpick" data-d="${d}" data-p="${esc(q.p)}" data-v="${v}" aria-pressed="${cur === v}"><span>${t}: ${esc(sbVal(x))}</span>${cur === v ? gl('check', 'chk') : ''}</button>`).join('')}</div></div>`; }).join('');
+  }).join('') + '<div class="row ci-nav"><button class="btn pri grow" data-act="sbresolve">Übernehmen</button><button class="btn" data-act="sclose">Später</button></div>';
+}
+function sbResolve() {
+  const st = sbSt(); if (!st || !st.ask) return true;
+  const P = S.sbPick || {}, ds = Object.keys(st.ask);
+  if (ds.some(d => sbAsks(d).some(q => !(P[d] || {})[q.p]))) { toast('Bitte bei jedem Punkt einen Wert wählen'); return false; }
+  ds.forEach(d => {
+    const x = st.ask[d], asks = [], m = sbMergeDay(sbNz(DB.days[d]) || {}, x.rem, asks);
+    asks.forEach(q => { if ((P[d] || {})[q.p] === 'b') sbSetPath(m, q.p, q.b); });
+    DB.days[d] = sbFix(m); st.u[d] = x.u; delete st.ask[d];
+  });
+  sbSave(st); S.sbPick = {}; save(); return true;
+}
+/* Tabellen-Backup nur noch einmal am Tag: beim ersten Öffnen ab 4 Uhr (oder wenn noch etwas wartet). */
+function syncDaily() {
+  const c = syncCfg(); if (!c.url || !c.key) return;
+  const now = new Date(); if (now.getHours() < 4) return;
+  const b = new Date(now); b.setHours(4, 0, 0, 0);
+  if ((c.last || 0) < b.getTime() || c.pending) syncNow(false);
+}
 /* Stimmung: mehrere Einträge pro Tag in mood.log [{id,t,v}]; mood.v ist der Tagesschnitt (für Verlauf und Muster). Ältere Tage haben nur mood.v. */
 const moodLog = m => !m ? [] : m.log ? m.log : m.v ? [{ id: 'alt', t: '', v: m.v }] : [];
 const moodSorted = m => moodLog(m).slice().sort((a, b) => (a.t || '').localeCompare(b.t || ''));
@@ -439,7 +596,8 @@ function viewHeute() {
   const hr = new Date().getHours();
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
-  const top = (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
+  const nAsk = isToday ? sbAskDays().length : 0;
+  const top = (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
     + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>7 kurze Schritte, etwa eine Minute</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
@@ -629,6 +787,7 @@ function viewSettings() {
   <details class="card"><summary>Gewohnheiten</summary>
     ${list('habits', c.habits)}
     <small class="mut">Alte Einträge bleiben erhalten, auch wenn du eine Gewohnheit löschst.</small></details>
+  ${sbSection()}
   <details class="card" ${S.impMsg ? 'open' : ''}><summary>Daten, Backup und Import</summary>
     <div class="lbl" style="margin-top:0">Import (z. B. von Claude ausgewertete Uhr-Screenshots, oder ein Backup)</div>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
@@ -643,14 +802,44 @@ function viewSettings() {
     <label class="mut">Web-App-Adresse<br><input type="url" data-sync="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(syncCfg().url || '')}"></label>
     <div class="mut">Passwort<div class="pw masked${syncCfg().key ? ' has' : ''}"><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" value="${esc(syncCfg().key || '')}"><span class="pwdots" aria-hidden="true">••••••••••</span><button type="button" class="pweye" data-act="pweye" aria-label="Passwort anzeigen oder verbergen">${gl('eye')}</button></div></div>
     <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
-    <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Danach sichert die App ca. 20 Sekunden nach jeder Änderung automatisch.</small>
+    <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Die App sichert einmal am Tag automatisch, beim ersten Öffnen ab 4 Uhr.</small>
     <div class="lbl">Gefahrenzone</div><button class="btn danger" data-act="wipe">Alle Daten löschen</button></details>
   <details class="card"><summary>App-Ideen</summary>
     <textarea data-cfgt="ideas" placeholder="Was dir für die App einfällt. Eine Idee pro Zeile.">${esc(c.ideas || '')}</textarea>
     <small class="mut">Nur zum Sammeln, hier wird nichts umgesetzt. Wird mit dem Backup gesichert.</small></details>
   <details class="card"><summary>App</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
     <button class="btn" data-act="update">Nach Update suchen</button>
-    <small class="mut">Alle Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.</small></details>`;
+    <small class="mut">${sbSt() ? 'Daten werden über den Sync-Code abgeglichen und täglich in der Google-Tabelle gesichert.' : 'Alle Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.'}</small></details>`;
+}
+
+function sbSection() {
+  const st = sbSt(), F = S.sbFirst;
+  if (!st) return `<details class="card" ${F || S.sbOpen ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
+    ${F ? `<p>Auf diesem Gerät und online gibt es schon Daten (${F.n} Tage online).</p>
+      <div class="row"><button class="btn pri grow" data-act="sbfirst" data-m="merge">Zusammenführen</button><button class="btn grow" data-act="sbfirst" data-m="take">Online-Daten übernehmen</button></div>
+      <small class="hint">Übernehmen ersetzt die Daten auf diesem Gerät. Zusammenführen behält beides und fragt bei Widersprüchen nach.</small>
+      <button class="btn" data-act="sbfirst" data-m="cancel">Abbrechen</button>`
+    : `<small class="mut">Mit einem Sync-Code werden deine Daten online gespeichert und auf allen Geräten abgeglichen. Kein Konto nötig.</small>
+      <button class="btn pri" data-act="sbcreate">Neuen Code erzeugen</button>
+      <div class="lbl">Oder vorhandenen Code eingeben</div>
+      <input type="text" id="sbcode" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX">
+      <button class="btn" data-act="sbconnect">Verbinden</button>`}
+    ${S.sbMsg ? `<small class="hint">${esc(S.sbMsg)}</small>` : ''}</details>`;
+  const t = st.last ? new Date(st.last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  const hold = st.delHold || [], asks = sbAskDays();
+  return `<details class="card" ${S.sbOpen || hold.length || S.sbShow ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
+    <div class="kv"><span>Stand</span><span>${st.err ? 'Fehler beim Abgleich' : t ? 'Abgeglichen ' + t : 'Noch nicht abgeglichen'}</span></div>
+    ${st.err ? `<small class="hint">${esc(st.err)}</small>` : ''}
+    ${asks.length ? `<button class="btn pri" data-act="sbask">Unterschiede klären (${asks.length} ${asks.length === 1 ? 'Tag' : 'Tage'})</button>` : ''}
+    ${hold.length ? `<p>${hold.length} Tage fehlen auf diesem Gerät, sind online aber noch gespeichert.</p>
+      <div class="row"><button class="btn pri grow" data-act="sbrestore">Wiederherstellen</button><button class="btn danger grow" data-act="sbdelall">Auch online löschen</button></div>` : ''}
+    <button class="btn" data-act="sbnow">Jetzt abgleichen</button>
+    ${S.sbShow ? `<div class="lbl">Dein Sync-Code</div><div class="sbcode">${sbFmt(st.code)}</div>
+      <button class="btn" data-act="sbcopy">Code kopieren</button>
+      <small class="hint">Denselben Code auf anderen Geräten und im Widget eintragen. Wer den Code kennt, sieht deine Daten.</small>`
+      : `<button class="btn" data-act="sbshow">Code anzeigen</button>`}
+    <button class="btn" data-act="sboff">Auf diesem Gerät trennen</button>
+    ${S.sbMsg ? `<small class="hint">${esc(S.sbMsg)}</small>` : ''}</details>`;
 }
 
 /* ---------- Aktionen ---------- */
@@ -803,6 +992,41 @@ const A = {
   copyprompt() { copy(CLAUDE_PROMPT, 'Auftrag kopiert'); return 'noRender'; },
   pweye(el) { const w = el.closest('.pw'); w.classList.toggle('masked'); el.style.color = w.classList.contains('masked') ? '' : 'var(--brand)'; return 'noRender'; },
   syncnow() { syncNow(true); return 'noRender'; },
+  sbcreate() { sbSave({ code: sbNewCode() }); S.sbShow = 1; S.sbOpen = 1; S.sbMsg = 'Code erzeugt. Deine Daten werden jetzt hochgeladen.'; sbRun({ full: true, ui: 1 }); },
+  async sbconnect() {
+    const c = sbNorm($('#sbcode') && $('#sbcode').value); S.sbOpen = 1;
+    if (c.length !== 20) { S.sbMsg = 'Der Code hat 20 Zeichen.'; render(); return 'noRender'; }
+    S.sbMsg = 'Verbinde …'; render();
+    try {
+      const r = await sbRpc('tr_pull', { p_code: c, p_since: null }), n = (r.days || []).filter(x => !x.del).length, mine = allDates().length;
+      S.sbMsg = '';
+      if (n && mine) S.sbFirst = { code: c, n };
+      else { sbSave({ code: c }); S.sbMsg = n ? 'Verbunden. Daten werden geladen.' : 'Verbunden. Für diesen Code gab es noch keine Daten.'; await sbRun({ full: true }); }
+    } catch (e) { S.sbMsg = 'Verbinden fehlgeschlagen: ' + (e.message || e); }
+    render(); return 'noRender';
+  },
+  sbfirst(el) {
+    const F = S.sbFirst; S.sbFirst = null; if (!F || el.dataset.m === 'cancel') { S.sbMsg = ''; return; }
+    if (el.dataset.m === 'take') { DB.days = {}; DB.weeks = {}; try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { } sbSave({ code: F.code, h: {}, mh: { cfg: sbHash(DB.cfg), weeks: sbHash(DB.weeks) } }); }
+    else sbSave({ code: F.code });
+    S.sbMsg = el.dataset.m === 'take' ? 'Online-Daten werden geladen.' : 'Wird zusammengeführt.'; sbRun({ full: true, ui: 1 });
+  },
+  sbnow() { S.sbMsg = ''; sbRun({ ui: 1 }).then(() => { if (!sbSt().err) toast('Abgeglichen'); }); return 'noRender'; },
+  sbshow() { S.sbShow = 1; },
+  sbcopy() { const st = sbSt(); if (st) copy(sbFmt(st.code), 'Code kopiert'); return 'noRender'; },
+  sboff(el) {
+    if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Wirklich trennen? Nochmal tippen'; return 'noRender'; }
+    sbSave(null); S.sbShow = 0; S.sbMsg = 'Getrennt. Die Daten bleiben auf diesem Gerät.';
+  },
+  sbrestore() { S.sbMsg = ''; sbRun({ full: true, ui: 1 }); return 'noRender'; },
+  sbdelall(el) {
+    if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Wirklich online löschen? Nochmal tippen'; return 'noRender'; }
+    sbRun({ force: true, ui: 1 }); return 'noRender';
+  },
+  sbask() { S.sbPick = {}; openSheet(sbAskSheet()); return 'noRender'; },
+  sbpick(el) { const P = S.sbPick = S.sbPick || {}; (P[el.dataset.d] = P[el.dataset.d] || {})[el.dataset.p] = el.dataset.v; $('#sbody').innerHTML = sbAskSheet(); return 'noRender'; },
+  sbresolve() { if (!sbResolve()) return 'noRender'; closeSheet(); toast('Übernommen'); },
+
   copyexp() { copy(JSON.stringify(DB), 'Backup kopiert'); return 'noRender'; },
   dlexp() {
     try { const b = new Blob([JSON.stringify(DB)], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'tracker-backup-' + todayStr() + '.json'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { toast('Download nicht möglich, nimm „Backup kopieren“'); }
@@ -831,7 +1055,7 @@ async function checkUpdate(manual) {
   } catch (e) { if (manual) toast('Keine Verbindung: Update-Prüfung nicht möglich'); }
 }
 function autoCheck() { let t = 0; try { t = Number(localStorage.getItem('tracker-upd')) || 0; } catch (e) { } if (Date.now() - t > 10 * 60 * 1000) checkUpdate(false); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { autoCheck(); wxLoad(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { autoCheck(); wxLoad(); if (sbSt()) sbRun(); else syncDaily(); } });
 setTimeout(autoCheck, 1500);
 setTimeout(() => fbCheck(), 1200);
 let keepOpen = null;
@@ -1364,3 +1588,4 @@ function wxSheet() {
 }
 
 render();
+setTimeout(() => { if (sbSt()) sbRun(); else syncDaily(); }, 600);
