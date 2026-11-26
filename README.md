@@ -180,3 +180,11 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Schritt „Gemacht“: bei Uni und Arbeit ungefähre Dauer in vier Stufen (`did.h`, 1 = unter 1 h, 2 = 1–3 h, 3 = 3–5 h, 4 = über 5 h).
 - Gewohnheiten Alkohol (`h6`) und Rauchen (`h16`) entfernt, auch aus alten Tagen (`cfg.v = 8`).
 - Apps Script: Spalten Uni-Zeit, Arbeitszeit, Zufriedenheit, Konzentration, Stress, Deadline bald, Ereignis, Streit, Bildschirm spät, Woanders.
+
+
+## Version 4.1 (26.11.2026) – Apple Health
+- Kurzbefehl „Tracker Health“ schickt Schlaf (Phasen), Ruhepuls, HRV, Schritte von gestern und Workouts an `tr_health_put` (Tabelle `tracker_health`, SQL `supabase/tracker_health.sql`). Keine Kalorien.
+- App holt die Daten beim Abgleich (`tr_health_get`, lokal `tracker-health`) und füllt nur leere Felder: Schlaf (`bed`, `wake`, `deep`, `rem`, `light`, `awake`, `src:'uhr'`), `sleep.rhr`, `sleep.hrv`, `day.steps`. Was gefüllt wurde, steht in `day.hlf` (kommt nach Löschen nicht wieder).
+- Workouts erscheinen in der Sport-Karte unter „Von der Uhr“ zum Übernehmen (Eintrag mit `min`, `hw`) oder Ausblenden (`day.hwx`). Gleiche Sportart ±60 min schon eingetragen → kein Vorschlag.
+- Karte „Daten von der Uhr holen“ (heute ab 5 Uhr, wenn noch keine Uhrdaten für heute) und Einstellungen → Apple Health starten `shortcuts://run-shortcut?name=Tracker%20Health`.
+- Test `tests/t14.py`.

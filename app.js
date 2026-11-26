@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.0';
+const VERSION = '4.1';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -270,6 +270,8 @@ async function sbRun(opts = {}) {
     const since = opts.full || !st.since ? null : new Date(new Date(st.since).getTime() - 60000).toISOString();
     const r = await sbRpc('tr_pull', { p_code: st.code, p_since: since });
     changed = sbApply(st, r.days || [], r.meta || {}, opts.full);
+    await hlFetch(st, since);
+    changed = hlFill() || changed;
     st.since = r.now;
     for (let i = 0; i < 10; i++) {
       const pay = sbCollect(st, opts.force); if (!pay) break;
@@ -327,6 +329,74 @@ function sbResolve() {
   });
   sbSave(st); S.sbPick = {}; save(); return true;
 }
+/* ---------- Apple Health (4.1): Daten vom Kurzbefehl „Tracker Health“ über Supabase (tracker_health) ----------
+   tracker-health (nur auf dem Gerät) = {d: data}. data: sleep / workouts als Zeilen „Wert;Start;Ende“, rhr, hrv, steps.
+   Übernommen wird nur in leere Felder; was übernommen wurde, steht im Tag unter hlf (damit es nicht wiederkommt, wenn du es löschst). */
+const HL_LS = 'tracker-health', HL_SC = 'Tracker Health';
+const hlAll = () => { try { return JSON.parse(localStorage.getItem(HL_LS)) || {}; } catch (e) { return {}; } };
+const hlStore = o => { try { localStorage.setItem(HL_LS, JSON.stringify(o)); } catch (e) { } };
+function hlDate(s) {   // ISO 8601 oder deutsch „26.11.2026, 07:12“
+  s = String(s || '').trim(); let t = Date.parse(s); if (!isNaN(t)) return new Date(t);
+  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{2,4}),?\s+(\d{1,2}):(\d{2})/.exec(s);
+  return m ? new Date(+(m[3].length === 2 ? '20' + m[3] : m[3]), m[2] - 1, +m[1], +m[4], +m[5]) : null;
+}
+const hlLines = txt => String(txt || '').split(/\r?\n/).map(l => l.split(';')).filter(p => p.length >= 3).map(p => ({ v: p[0].trim(), s: hlDate(p[1]), e: hlDate(p[2]) })).filter(x => x.s && x.e && x.e > x.s);
+const hlKind = v => { v = v.toLowerCase(); return /tief|deep/.test(v) ? 'deep' : /rem/.test(v) ? 'rem' : /wach|awake/.test(v) ? 'awake' : /kern|core|leicht|light/.test(v) ? 'light' : /bett|bed/.test(v) ? 'bed' : 'asleep'; };
+const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+/* Schlaf der Nacht vor Tag d (Ende zwischen 18 Uhr am Vortag und 14 Uhr) */
+function hlSleep(txt, d) {
+  const lo = parse(addDays(d, -1)).getTime() + 18 * 3600000, hi = parse(d).getTime() + 14 * 3600000;
+  let L = hlLines(txt).filter(x => x.e.getTime() > lo && x.e.getTime() <= hi).map(x => Object.assign(x, { k: hlKind(x.v) }));
+  if (L.some(x => ['deep', 'rem', 'light'].includes(x.k))) L = L.filter(x => x.k !== 'asleep' && x.k !== 'bed');
+  const sl = L.filter(x => x.k !== 'awake' && x.k !== 'bed'); if (!sl.length) return null;
+  const b = new Date(Math.min(...sl.map(x => x.s))), w = new Date(Math.max(...sl.map(x => x.e)));
+  const r = { bed: hm(b), wake: hm(w) }, sum = {};
+  L.filter(x => x.s >= b && x.e <= w || x.k !== 'awake').forEach(x => { sum[x.k] = (sum[x.k] || 0) + (x.e - x.s) / 60000; });
+  ['deep', 'rem', 'light', 'awake'].forEach(k => { if (sum[k]) r[k] = Math.round(sum[k]); });
+  return r;
+}
+const HL_SP = [[/kraft|strength|gewicht|functional/, 'kraft'], [/(^|\s)rad|cycl|bike/, 'rad'], [/lauf|run|jog/, 'laufen'], [/schwimm|swim/, 'schwimmen'], [/wander|hik/, 'wandern'], [/gehen|walk|spazier/, 'spazieren'], [/yoga|dehn|flex|pilates/, 'yoga'], [/klett|climb/, 'klettern'], [/hiit|zirkel|intervall/, 'hiit'], [/tanz|danc/, 'tanzen'], [/ski|snow/, 'ski'], [/tennis|badminton/, 'tennis'], [/fußball|fussball|soccer/, 'fussball']];
+const hlSport = v => { const m = HL_SP.find(([re]) => re.test(v.toLowerCase())); return m ? DB.cfg.sports.find(s => s.id === m[1]) : null; };
+/* Workouts von der Uhr für Tag d, die noch nicht eingetragen oder ausgeblendet sind */
+function hlWorkouts(d) {
+  const A = hlAll(), seen = {}, out = [], D = day(d), sp = D.sport || [], hx = D.hwx || [];
+  Object.values(A).forEach(x => hlLines(x.workouts).forEach(w => {
+    if (ymd(w.s) !== d) return;
+    const key = hm(w.s) + ' ' + w.v; if (seen[key]) return; seen[key] = 1;
+    const cs = hlSport(w.v), min = Math.round((w.e - w.s) / 60000), t = tmin(hm(w.s));
+    const same = e => e.hw === key || (e.t && Math.abs(tmin(e.t) - t) <= 60 && (cs ? (e.name === cs.name || (cs.id === 'rad' && e.c)) : e.name === w.v));
+    if (hx.includes(key) || sp.some(same)) return;
+    out.push({ key, t: hm(w.s), min, name: cs ? cs.name : w.v, cs });
+  }));
+  return out.sort((a, b) => a.t.localeCompare(b.t));
+}
+/* Leere Felder der letzten 14 Tage aus den Health-Daten füllen. Rückgabe: ob sich etwas geändert hat. */
+function hlFill() {
+  const A = hlAll(), from = addDays(todayStr(), -14); let ch = false;
+  Object.keys(A).filter(d => d >= from && d <= todayStr()).forEach(d => {
+    const x = A[d] || {}, D = DB.days[d] || {}, f = D.hlf || [], add = k => { const T = day(d, true); T.hlf = [...(T.hlf || []), k]; ch = true; return T; };
+    if (x.sleep && !f.includes('s')) {
+      const s = hlSleep(x.sleep, d), sl = D.sleep || {};
+      if (s && !sl.bed && !sl.wake) { const T = add('s'); T.sleep = Object.assign(T.sleep || {}, s, { src: 'uhr' }); T.sleep.dur = sleepDur(T.sleep); }
+    }
+    const num = v => { const n = Number(String(v).replace(',', '.')); return isFinite(n) && n > 0 ? n : null; };
+    if (num(x.rhr) && !f.includes('r') && !(D.sleep || {}).rhr) { add('r'); sec(d, 'sleep').rhr = Math.round(num(x.rhr)); }
+    if (num(x.hrv) && !f.includes('v') && !(D.sleep || {}).hrv) { add('v'); sec(d, 'sleep').hrv = Math.round(num(x.hrv)); }
+    if (num(x.steps) && !f.includes('st') && !D.steps) { const T = add('st'); T.steps = Math.round(num(x.steps)); }
+  });
+  return ch;
+}
+async function hlFetch(st, since) {
+  try {
+    const r = await sbRpc('tr_health_get', { p_code: st.code, p_since: since });
+    if (!Array.isArray(r) || !r.length) return false;
+    const A = hlAll(); r.forEach(x => { A[x.d] = x.data; }); hlStore(A);
+    return true;
+  } catch (e) { return false; }   // SQL noch nicht ausgeführt o. Ä. – Sync läuft trotzdem
+}
+const hlToday = () => !!hlAll()[todayStr()];
+function hlRun() { location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(HL_SC); }
 /* Tabellen-Backup nur noch einmal am Tag: beim ersten Öffnen ab 4 Uhr (oder wenn noch etwas wartet). */
 function syncDaily() {
   const c = syncCfg(); if (!c.url || !c.key) return;
@@ -549,6 +619,7 @@ function viewHeute() {
     <div class="row slrow"><div class="tfield">Ins Bett<button class="timebtn" data-act="tpick" data-t="sleep.bed">${sl.bed || '–:–'}</button></div>
     <div class="tfield">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow sldur"><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small><div class="big">${fmtDur(dur)}</div></div></div>
+    ${sl.deep || sl.rem || sl.rhr || sl.hrv || D.steps ? `<small class="mut hlrow">${[sl.deep ? 'Tief ' + fmtDur(sl.deep).replace(' h', '') : '', sl.rem ? 'REM ' + fmtDur(sl.rem).replace(' h', '') : '', sl.rhr ? 'Ruhepuls ' + sl.rhr : '', sl.hrv ? 'HRV ' + sl.hrv + ' ms' : '', D.steps ? D.steps.toLocaleString('de-DE') + ' Schritte' : ''].filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · ')}</small>` : ''}
     <div class="lbl">Wie erholt fühlst du dich?</div>
     <div class="smileys">${REST_N.map((n, i) => { const on = sl.q === i + 1; return `<button class="sm ${on ? 'on' : ''}" data-act="srate" data-v="${i + 1}" aria-label="${n}" aria-pressed="${on}">${face(i + 1)}${on ? `<i class="badge">${gl('check')}</i>` : ''}</button>`; }).join('')}</div>
     <button class="more" data-act="tog" data-k="sleep" aria-expanded="${!!sleepOpen}"><span>${sleepOpen ? 'Weniger' : 'Mehr dazu: Fragen, Uhr-Daten'}${!sleepOpen && (sl.fall || sl.wakes || sl.morning || sl.deep || sl.note) ? dot : ''}</span>${arrow(sleepOpen)}</button>
@@ -557,7 +628,7 @@ function viewHeute() {
       <div class="lbl">Nachts wach geworden?</div>${chips([['nie', 'nie'], ['1x', 'einmal'], ['mehrfach', 'mehrfach']], sl.wakes, 'swakes')}
       <div class="lbl">Aufwachen</div>${chips([['frisch', 'frisch'], ['ok', 'okay'], ['zerschlagen', 'zerschlagen']], sl.morning, 'smorning')}
       <div class="lbl">Uhr-Daten (optional, in Minuten bzw. Schläge/min)</div>
-      <div class="mini">${[['score', 'Score'], ['deep', 'Tief'], ['rem', 'REM'], ['light', 'Leicht'], ['awake', 'Wach'], ['rhr', 'Ruhepuls']].map(([k, l]) => `<label>${l}<input type="number" inputmode="numeric" data-f="sleep.${k}" value="${sl[k] ?? ''}"></label>`).join('')}</div>
+      <div class="mini">${[['score', 'Score'], ['deep', 'Tief'], ['rem', 'REM'], ['light', 'Leicht'], ['awake', 'Wach'], ['rhr', 'Ruhepuls'], ['hrv', 'HRV (ms)']].map(([k, l]) => `<label>${l}<input type="number" inputmode="numeric" data-f="sleep.${k}" value="${sl[k] ?? ''}"></label>`).join('')}</div>
       <div class="lbl">Notiz zum Schlaf</div><textarea data-f="sleep.note" placeholder="Träume, Störungen …">${esc(sl.note || '')}</textarea>
       <small class="hint">Tipp: Uhr-Screenshot im Claude-Chat auswerten lassen und das Ergebnis unter Einstellungen → Import einfügen.</small>` : ''}
 `;
@@ -571,11 +642,13 @@ function viewHeute() {
     ${cof.map(c => `<div class="ent"><button class="timebtn t" data-act="tpick" data-t="coffee" data-id="${c.id}">${c.t}</button><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${caffeineBlock(d)}
 `;
+  const hw = hlWorkouts(d);
   P.sport = `
     <div class="chips">${[...sr.top, ...sr.rest].map(x => sChip(x)).join('')}${newChip('sports')}</div>
     ${hidBlock('shid', sHid, sChip)}
     ${copyBtns('sport')}
-    ${sp.map(x => `<div class="ent">${ic(sportIc(x))}<span class="grow">${esc(x.name)}${x.t ? ` <small>${x.t} Uhr</small>` : ''}</span><button class="x" data-act="sdel" data-id="${x.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
+    ${hw.length ? `<div class="lbl">Von der Uhr</div>${hw.map(w => `<div class="ent hlw">${ic(w.cs ? itIc('sports', w.cs) : 'medaille')}<span class="grow">${esc(w.name)} <small>${w.t} Uhr · ${w.min} min</small></span><button class="btn hlbtn" data-act="hwadd" data-k="${esc(w.key)}">Übernehmen</button><button class="x" data-act="hwx" data-k="${esc(w.key)}" aria-label="Ausblenden">${gl('close')}</button></div>`).join('')}` : ''}
+    ${sp.map(x => `<div class="ent">${ic(sportIc(x))}<span class="grow">${esc(x.name)}${x.t ? ` <small>${x.t} Uhr${x.min ? ' · ' + x.min + ' min' : ''}</small>` : ''}</span><button class="x" data-act="sdel" data-id="${x.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${hintLP('Antippen fügt hinzu. Lange drücken: bearbeiten, verstecken, löschen')}
 `;
   P.habit = `
@@ -596,8 +669,8 @@ function viewHeute() {
   const hr = new Date().getHours();
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
-  const nAsk = isToday ? sbAskDays().length : 0;
-  const top = (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
+  const nAsk = isToday ? sbAskDays().length : 0, hlDue = isToday && hr >= 5 && sbSt() && Object.keys(hlAll()).length && !hlToday();
+  const top = (hlDue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="hlrun"><div class="tile on-g">${tile('sleep')}</div><h3>Daten von der Uhr holen<small>Startet den Kurzbefehl „${HL_SC}“</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
     + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>7 kurze Schritte, etwa eine Minute</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
@@ -788,6 +861,10 @@ function viewSettings() {
     ${list('habits', c.habits)}
     <small class="mut">Alte Einträge bleiben erhalten, auch wenn du eine Gewohnheit löschst.</small></details>
   ${sbSection()}
+  ${sbSt() ? `<details class="card"><summary>Apple Health</summary>
+    <small class="mut">Der Kurzbefehl „${HL_SC}“ holt Schlaf, Ruhepuls, HRV, Schritte und Workouts von der Uhr. Übernommen wird nur, was du noch nicht eingetragen hast. Workouts erscheinen in der Sport-Karte zum Übernehmen.</small>
+    <div class="kv"><span>Letzte Daten</span><span>${(() => { const k = Object.keys(hlAll()).sort(); return k.length ? parse(k[k.length - 1]).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }) : 'noch keine'; })()}</span></div>
+    <button class="btn" data-act="hlrun">Kurzbefehl jetzt ausführen</button></details>` : ''}
   <details class="card" ${S.impMsg ? 'open' : ''}><summary>Daten, Backup und Import</summary>
     <div class="lbl" style="margin-top:0">Import (z. B. von Claude ausgewertete Uhr-Screenshots, oder ein Backup)</div>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
@@ -992,6 +1069,14 @@ const A = {
   copyprompt() { copy(CLAUDE_PROMPT, 'Auftrag kopiert'); return 'noRender'; },
   pweye(el) { const w = el.closest('.pw'); w.classList.toggle('masked'); el.style.color = w.classList.contains('masked') ? '' : 'var(--brand)'; return 'noRender'; },
   syncnow() { syncNow(true); return 'noRender'; },
+  hlrun() { hlRun(); return 'noRender'; },
+  hwadd(el) {
+    const w = hlWorkouts(S.date).find(x => x.key === el.dataset.k); if (!w) return;
+    sec(S.date, 'sport').push(Object.assign({ id: uid(), t: w.t, name: w.name, min: w.min, hw: w.key }, w.cs ? { e: w.cs.e, i: itIc('sports', w.cs) } : {}));
+    save();
+  },
+  hwx(el) { const D = day(S.date, true); D.hwx = [...(D.hwx || []), el.dataset.k]; save(); },
+
   sbcreate() { sbSave({ code: sbNewCode() }); S.sbShow = 1; S.sbOpen = 1; S.sbMsg = 'Code erzeugt. Deine Daten werden jetzt hochgeladen.'; sbRun({ full: true, ui: 1 }); },
   async sbconnect() {
     const c = sbNorm($('#sbcode') && $('#sbcode').value); S.sbOpen = 1;
@@ -1455,7 +1540,7 @@ document.addEventListener('click', e => {
     document.querySelectorAll('details summary').forEach(s => { if (open.includes(s.textContent.trim()) || (keepOpen && s.textContent.trim().toLowerCase().startsWith({ coffee: 'koffein', sports: 'sportarten', habits: 'gewohnheiten' }[keepOpen] || '#'))) s.parentElement.open = true; });
     keepOpen = null;
     if (S.ci) $('#sbody').innerHTML = ciSheet();
-    else { const fa = { hab: 'habit', sadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
+    else { const fa = { hab: 'habit', sadd: 'sport', hwadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
     if (['hab', 'sadd', 'cadd', 'csize', 'srate', 'tag', 'sfall', 'swakes', 'smorning'].includes(act) && key) { const n = document.querySelector(`#app .on[data-id="${CSS.escape(key)}"], #app .on[data-v="${CSS.escape(key)}"]`); if (n) n.classList.add('pop'); }
     if (act === 'hab' && !goalBefore && habGoal()) { const t = $('.a-habit .tile'); if (t) t.classList.add('goal'); }
     if (act === 'tab' || act === 'dprev' || act === 'dnext' || act === 'dtoday') { const a = $('#app'); a.classList.remove('enter'); void a.offsetWidth; a.classList.add('enter'); }

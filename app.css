@@ -370,3 +370,6 @@ body.noscroll{overflow:hidden}
 .sbq{margin:var(--s-2) 0 var(--s-3)}
 .sbq .chips{margin-top:var(--s-1)}
 .sbcode{font-family:ui-monospace,Menlo,monospace;font-size:20px;letter-spacing:1px;padding:var(--s-2) 0;user-select:all;-webkit-user-select:all}
+/* Apple Health (4.1) */
+.hlrow{display:block;margin-top:var(--s-1)}
+.hlw .hlbtn{min-height:var(--tap);padding:0 var(--s-2);flex:none}
