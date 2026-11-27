@@ -1,4 +1,4 @@
-# 4.1: Apple Health über tracker_health (Kurzbefehl simuliert per tr_health_put). Voraussetzungen wie t13, dazu supabase/tracker_health.sql.
+# 4.1/4.2: Apple Health (ohne Workouts seit 4.2) über tracker_health (Kurzbefehl simuliert per tr_health_put). Voraussetzungen wie t13, dazu supabase/tracker_health.sql.
 import subprocess, time, json, datetime
 from zoneinfo import ZoneInfo
 from playwright.sync_api import sync_playwright
@@ -43,21 +43,14 @@ with sync_playwright() as p:
     res.append(('karte weg', 'Daten von der Uhr holen' not in pg.inner_text('#app')))
     t = pg.inner_text('#app').replace('\u00a0', ' ')
     res.append(('anzeige schlaf', 'HRV 48 ms' in t and 'Ruhepuls 52' in t and 'Tief 1:00' in t))
-    res.append(('vorschlag rad, kraft schon da', 'Von der Uhr' in t and 'Radfahren' in t and '10:15 Uhr · 43 min' in t and pg.locator('[data-act=hwadd]').count() == 1))
-    pg.locator('section.a-sport').screenshot(path='/tmp/hlsport.png'); pg.locator('section.a-sleep').screenshot(path='/tmp/hlsleep.png')
-    pg.locator('[data-act=hwadd]').first.click(); pg.wait_for_timeout(200)
-    sp = pg.evaluate(f"day('{T.isoformat()}').sport")
-    res.append(('übernommen', len(sp) == 2 and sp[1]['name'] == 'Radfahren' and sp[1]['min'] == 43 and pg.locator('[data-act=hwadd]').count() == 0))
-    pg.evaluate(f"S.date='{Y.isoformat()}';render()")
-    res.append(('gestern gehen', 'Spazieren' in pg.inner_text('#app') and pg.locator('[data-act=hwadd]').count() == 1))
-    pg.locator('[data-act=hwx]').first.click(); pg.wait_for_timeout(150)
-    res.append(('ausgeblendet', pg.locator('[data-act=hwadd]').count() == 0))
+    res.append(('keine workouts', 'Von der Uhr' not in t and pg.locator('[data-act=hwadd]').count() == 0))
+    pg.locator('section.a-sleep').screenshot(path='/tmp/hlsleep.png')
     # eigener Eintrag bleibt, gelöschter Wert kommt nicht wieder
     pg.evaluate(f"delete DB.days['{T.isoformat()}'].sleep.hrv; save(); sbRun()"); pg.wait_for_timeout(600)
     res.append(('kein erneutes füllen', pg.evaluate(f"day('{T.isoformat()}').sleep.hrv") is None))
     pg.wait_for_timeout(3500)
     res.append(('gesendet', '"steps": 8432' in sql("select data::text from tracker_days where d=:'d'", True, d=Y.isoformat())))
-    pg.evaluate("S.tab='set';render()"); res.append(('einstellungen', 'Apple Health' in pg.inner_text('#app')))
+    pg.evaluate("S.tab='set';render()"); t = pg.inner_text('#app'); res.append(('einstellungen', 'Apple Health' in t and 'Workouts' not in t and 'Mitteilungen' in t))
     res.append(('keine fehler', not errs, errs)); res.append(('breite', pg.evaluate("document.documentElement.scrollWidth<=390")))
     b.close()
 srv.terminate()

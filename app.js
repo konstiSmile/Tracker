@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.1.1';
+const VERSION = '4.2';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -330,7 +330,7 @@ function sbResolve() {
   sbSave(st); S.sbPick = {}; save(); return true;
 }
 /* ---------- Apple Health (4.1): Daten vom Kurzbefehl „Tracker Health“ über Supabase (tracker_health) ----------
-   tracker-health (nur auf dem Gerät) = {d: data}. data: sleep / workouts als Zeilen „Wert;Start;Ende“, rhr, hrv, steps.
+   tracker-health (nur auf dem Gerät) = {d: data}. data: sleep als Zeilen „Wert;Start;Ende“, rhr, hrv, steps.
    Übernommen wird nur in leere Felder; was übernommen wurde, steht im Tag unter hlf (damit es nicht wiederkommt, wenn du es löschst). */
 const HL_LS = 'tracker-health', HL_SC = 'Tracker Health';
 const hlAll = () => { try { return JSON.parse(localStorage.getItem(HL_LS)) || {}; } catch (e) { return {}; } };
@@ -355,21 +355,6 @@ function hlSleep(txt, d) {
   L.filter(x => x.s >= b && x.e <= w || x.k !== 'awake').forEach(x => { sum[x.k] = (sum[x.k] || 0) + (x.e - x.s) / 60000; });
   ['deep', 'rem', 'light', 'awake'].forEach(k => { if (sum[k]) r[k] = Math.round(sum[k]); });
   return r;
-}
-const HL_SP = [[/kraft|strength|gewicht|functional/, 'kraft'], [/(^|\s)rad|cycl|bike/, 'rad'], [/lauf|run|jog/, 'laufen'], [/schwimm|swim/, 'schwimmen'], [/wander|hik/, 'wandern'], [/gehen|walk|spazier/, 'spazieren'], [/yoga|dehn|flex|pilates/, 'yoga'], [/klett|climb/, 'klettern'], [/hiit|zirkel|intervall/, 'hiit'], [/tanz|danc/, 'tanzen'], [/ski|snow/, 'ski'], [/tennis|badminton/, 'tennis'], [/fußball|fussball|soccer/, 'fussball']];
-const hlSport = v => { const m = HL_SP.find(([re]) => re.test(v.toLowerCase())); return m ? DB.cfg.sports.find(s => s.id === m[1]) : null; };
-/* Workouts von der Uhr für Tag d, die noch nicht eingetragen oder ausgeblendet sind */
-function hlWorkouts(d) {
-  const A = hlAll(), seen = {}, out = [], D = day(d), sp = D.sport || [], hx = D.hwx || [];
-  Object.values(A).forEach(x => hlLines(x.workouts).forEach(w => {
-    if (ymd(w.s) !== d) return;
-    const key = hm(w.s) + ' ' + w.v; if (seen[key]) return; seen[key] = 1;
-    const cs = hlSport(w.v), min = Math.round((w.e - w.s) / 60000), t = tmin(hm(w.s));
-    const same = e => e.hw === key || (e.t && Math.abs(tmin(e.t) - t) <= 60 && (cs ? (e.name === cs.name || (cs.id === 'rad' && e.c)) : e.name === w.v));
-    if (hx.includes(key) || sp.some(same)) return;
-    out.push({ key, t: hm(w.s), min, name: cs ? cs.name : w.v, cs });
-  }));
-  return out.sort((a, b) => a.t.localeCompare(b.t));
 }
 /* Leere Felder der letzten 14 Tage aus den Health-Daten füllen. Rückgabe: ob sich etwas geändert hat. */
 function hlFill() {
@@ -397,6 +382,59 @@ async function hlFetch(st, since) {
 }
 const hlToday = () => !!hlAll()[todayStr()];
 function hlRun() { location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(HL_SC); }
+
+/* ---------- Mitteilungen (4.2): Web-Push über Supabase (Tabelle tracker_push, Edge Function tracker-push) ----------
+   tracker-push (nur auf dem Gerät) = {on, ep}. Zeiten: 6:30 und 9:00, beide nur, solange heute keine Uhrdaten da sind (Server rechnet in Europe/Berlin). */
+const PU_LS = 'tracker-push', PU_FN = SB_URL + '/functions/v1/tracker-push';
+const puSt = () => { try { return JSON.parse(localStorage.getItem(PU_LS)) || {}; } catch (e) { return {}; } };
+const puSave = o => { try { if (o) localStorage.setItem(PU_LS, JSON.stringify(o)); else localStorage.removeItem(PU_LS); } catch (e) { } };
+const puOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const puHome = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function puFn(body) {
+  return fetch(PU_FN, { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(r => r.text().then(t => { let j = {}; try { j = JSON.parse(t); } catch (e) { } if (!r.ok || j.ok === false) throw new Error(j.error || j.message || 'HTTP ' + r.status); return j; }));
+}
+const b64u = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); const r = atob(s + '='.repeat((4 - s.length % 4) % 4)); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+async function puSub(st, key) {
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(key || (await puFn({ mode: 'key' })).key) });
+  await sbRpc('tr_push_sub', { p_code: st.code, p_sub: sub.toJSON() });
+  puSave({ on: 1, ep: sub.endpoint });
+}
+async function puOn() {
+  const st = sbSt(); if (!st) return;
+  if (!puOk() || !puHome()) { S.puMsg = 'Mitteilungen gehen nur, wenn du den Tracker vom Home-Bildschirm öffnest.'; return; }
+  const perm = await Notification.requestPermission();   // muss direkt im Tippen passieren (iOS)
+  if (perm !== 'granted') { S.puMsg = 'Mitteilungen sind nicht erlaubt. Erlauben kannst du sie in den iPhone-Einstellungen → Mitteilungen → Tracker.'; return; }
+  await puSub(st);
+  S.puMsg = 'Eingeschaltet. Mit „Test senden“ kannst du es ausprobieren.';
+}
+async function puOff(quiet) {
+  const st = sbSt(), ep = puSt().ep;
+  try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch (e) { }
+  if (st && ep) await sbRpc('tr_push_unsub', { p_code: st.code, p_endpoint: ep }).catch(() => { });
+  puSave(null); if (!quiet) S.puMsg = 'Ausgeschaltet.';
+}
+/* Beim Start: Abo noch da? Hat sich die Adresse geändert, neu melden. */
+async function puCheck() {
+  const p = puSt(), st = sbSt(); if (!p.on || !st || !puOk()) return;
+  try {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (!sub && Notification.permission === 'granted') await puSub(st);
+    else if (!sub) { puSave(null); render(); }
+    else if (sub.endpoint !== p.ep) await puSub(st);
+  } catch (e) { }
+}
+function puSection() {
+  const on = puSt().on;
+  return `<details class="card" ${S.puOpen ? 'open' : ''}><summary>Mitteilungen</summary>
+    <small class="mut">Erinnert dich um 6:30 Uhr, die Daten von der Uhr zu holen, und um 9:00 Uhr nochmal, falls sie noch fehlen. Sind sie schon da, kommt nichts.</small>
+    ${on ? `<div class="kv"><span>Status</span><span>Eingeschaltet</span></div>
+      <div class="row"><button class="btn grow" data-act="putest">Test senden</button><button class="btn grow" data-act="puoff">Ausschalten</button></div>`
+    : `<button class="btn pri" data-act="puon">Mitteilungen einschalten</button>`}
+    ${S.puMsg ? `<small class="hint">${esc(S.puMsg)}</small>` : ''}</details>`;
+}
 /* Tabellen-Backup nur noch einmal am Tag: beim ersten Öffnen ab 4 Uhr (oder wenn noch etwas wartet). */
 function syncDaily() {
   const c = syncCfg(); if (!c.url || !c.key) return;
@@ -642,12 +680,10 @@ function viewHeute() {
     ${cof.map(c => `<div class="ent"><button class="timebtn t" data-act="tpick" data-t="coffee" data-id="${c.id}">${c.t}</button><span class="grow">${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg} mg</small></span><button class="x" data-act="cdel" data-id="${c.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${caffeineBlock(d)}
 `;
-  const hw = hlWorkouts(d);
   P.sport = `
     <div class="chips">${[...sr.top, ...sr.rest].map(x => sChip(x)).join('')}${newChip('sports')}</div>
     ${hidBlock('shid', sHid, sChip)}
     ${copyBtns('sport')}
-    ${hw.length ? `<div class="lbl">Von der Uhr</div>${hw.map(w => `<div class="ent hlw">${ic(w.cs ? itIc('sports', w.cs) : 'medaille')}<span class="grow">${esc(w.name)} <small>${w.t} Uhr · ${w.min} min</small></span><button class="btn hlbtn" data-act="hwadd" data-k="${esc(w.key)}">Übernehmen</button><button class="x" data-act="hwx" data-k="${esc(w.key)}" aria-label="Ausblenden">${gl('close')}</button></div>`).join('')}` : ''}
     ${sp.map(x => `<div class="ent">${ic(sportIc(x))}<span class="grow">${esc(x.name)}${x.t ? ` <small>${x.t} Uhr${x.min ? ' · ' + x.min + ' min' : ''}</small>` : ''}</span><button class="x" data-act="sdel" data-id="${x.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${hintLP('Antippen fügt hinzu. Lange drücken: bearbeiten, verstecken, löschen')}
 `;
@@ -862,9 +898,9 @@ function viewSettings() {
     <small class="mut">Alte Einträge bleiben erhalten, auch wenn du eine Gewohnheit löschst.</small></details>
   ${sbSection()}
   ${sbSt() ? `<details class="card"><summary>Apple Health</summary>
-    <small class="mut">Der Kurzbefehl „${HL_SC}“ holt Schlaf, Ruhepuls, HRV, Schritte und Workouts von der Uhr. Übernommen wird nur, was du noch nicht eingetragen hast. Workouts erscheinen in der Sport-Karte zum Übernehmen.</small>
+    <small class="mut">Der Kurzbefehl „${HL_SC}“ holt Schlaf, Ruhepuls, HRV und Schritte von der Uhr. Übernommen wird nur, was du noch nicht eingetragen hast. Sport trägst du selbst ein.</small>
     <div class="kv"><span>Letzte Daten</span><span>${(() => { const k = Object.keys(hlAll()).sort(); return k.length ? parse(k[k.length - 1]).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }) : 'noch keine'; })()}</span></div>
-    <button class="btn" data-act="hlrun">Kurzbefehl jetzt ausführen</button></details>` : ''}
+    <button class="btn" data-act="hlrun">Kurzbefehl jetzt ausführen</button></details>${puSection()}` : ''}
   <details class="card" ${S.impMsg ? 'open' : ''}><summary>Daten, Backup und Import</summary>
     <div class="lbl" style="margin-top:0">Import (z. B. von Claude ausgewertete Uhr-Screenshots, oder ein Backup)</div>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
@@ -1070,12 +1106,9 @@ const A = {
   pweye(el) { const w = el.closest('.pw'); w.classList.toggle('masked'); el.style.color = w.classList.contains('masked') ? '' : 'var(--brand)'; return 'noRender'; },
   syncnow() { syncNow(true); return 'noRender'; },
   hlrun() { hlRun(); return 'noRender'; },
-  hwadd(el) {
-    const w = hlWorkouts(S.date).find(x => x.key === el.dataset.k); if (!w) return;
-    sec(S.date, 'sport').push(Object.assign({ id: uid(), t: w.t, name: w.name, min: w.min, hw: w.key }, w.cs ? { e: w.cs.e, i: itIc('sports', w.cs) } : {}));
-    save();
-  },
-  hwx(el) { const D = day(S.date, true); D.hwx = [...(D.hwx || []), el.dataset.k]; save(); },
+  puon() { S.puOpen = 1; S.puMsg = 'Wird eingeschaltet …'; puOn().catch(e => { S.puMsg = 'Hat nicht geklappt: ' + e.message; }).then(render); return 'noRender'; },
+  puoff() { S.puOpen = 1; puOff().then(render); return 'noRender'; },
+  putest() { S.puOpen = 1; S.puMsg = 'Wird gesendet …'; render(); puFn({ mode: 'test', code: sbSt().code }).then(j => { S.puMsg = j.n ? 'Gesendet. Die Mitteilung sollte gleich erscheinen.' : 'Kein Gerät angemeldet. Bitte aus- und wieder einschalten.'; }).catch(e => { S.puMsg = 'Hat nicht geklappt: ' + e.message; }).then(render); return 'noRender'; },
 
   sbcreate() { sbSave({ code: sbNewCode() }); S.sbShow = 1; S.sbOpen = 1; S.sbMsg = 'Code erzeugt. Deine Daten werden jetzt hochgeladen.'; sbRun({ full: true, ui: 1 }); },
   async sbconnect() {
@@ -1101,6 +1134,7 @@ const A = {
   sbcopy() { const st = sbSt(); if (st) copy(sbFmt(st.code), 'Code kopiert'); return 'noRender'; },
   sboff(el) {
     if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Wirklich trennen? Nochmal tippen'; return 'noRender'; }
+    if (puSt().on) puOff(true);
     sbSave(null); S.sbShow = 0; S.sbMsg = 'Getrennt. Die Daten bleiben auf diesem Gerät.';
   },
   sbrestore() { S.sbMsg = ''; sbRun({ full: true, ui: 1 }); return 'noRender'; },
@@ -1540,7 +1574,7 @@ document.addEventListener('click', e => {
     document.querySelectorAll('details summary').forEach(s => { if (open.includes(s.textContent.trim()) || (keepOpen && s.textContent.trim().toLowerCase().startsWith({ coffee: 'koffein', sports: 'sportarten', habits: 'gewohnheiten' }[keepOpen] || '#'))) s.parentElement.open = true; });
     keepOpen = null;
     if (S.ci) $('#sbody').innerHTML = ciSheet();
-    else { const fa = { hab: 'habit', sadd: 'sport', hwadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
+    else { const fa = { hab: 'habit', sadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
     if (['hab', 'sadd', 'cadd', 'csize', 'srate', 'tag', 'sfall', 'swakes', 'smorning'].includes(act) && key) { const n = document.querySelector(`#app .on[data-id="${CSS.escape(key)}"], #app .on[data-v="${CSS.escape(key)}"]`); if (n) n.classList.add('pop'); }
     if (act === 'hab' && !goalBefore && habGoal()) { const t = $('.a-habit .tile'); if (t) t.classList.add('goal'); }
     if (act === 'tab' || act === 'dprev' || act === 'dnext' || act === 'dtoday') { const a = $('#app'); a.classList.remove('enter'); void a.offsetWidth; a.classList.add('enter'); }
@@ -1673,4 +1707,4 @@ function wxSheet() {
 }
 
 render();
-setTimeout(() => { if (sbSt()) sbRun(); else syncDaily(); }, 600);
+setTimeout(() => { if (sbSt()) sbRun(); else syncDaily(); puCheck(); }, 600);

@@ -188,3 +188,9 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Workouts erscheinen in der Sport-Karte unter „Von der Uhr“ zum Übernehmen (Eintrag mit `min`, `hw`) oder Ausblenden (`day.hwx`). Gleiche Sportart ±60 min schon eingetragen → kein Vorschlag.
 - Karte „Daten von der Uhr holen“ (heute ab 5 Uhr, wenn noch keine Uhrdaten für heute) und Einstellungen → Apple Health starten `shortcuts://run-shortcut?name=Tracker%20Health`.
 - Test `tests/t14.py`.
+## Version 4.2 (27.11.2026) – Mitteilungen, ohne Workouts
+- **Mitteilungen (Web-Push über Supabase):** Einstellungen → Mitteilungen → „Mitteilungen einschalten“ (nur vom Home-Bildschirm). 6:30 Uhr „Uhrdaten holen“, 9:00 Uhr „Uhrdaten fehlen noch“ – beide nur, wenn heute noch keine Health-Daten angekommen sind. Tippen öffnet den Tracker. „Test senden“ schickt sofort eine.
+- Teile: SQL `supabase/tracker_push.sql` (Tabellen `tracker_push`, `tracker_push_cfg`, RPCs `tr_push_sub`/`tr_push_unsub` für die App, `tr_push_due`/`tr_push_list`/`tr_push_gone`/`tr_push_vapid*` nur für service_role, pg_cron alle 15 Min.), Edge Function `supabase/functions/tracker-push/index.ts` (Verify JWT aus; legt VAPID-Schlüssel beim ersten Aufruf selbst an, Privatschlüssel bleibt in der Datenbank). Zeiten pro Abo in `t1`/`t2` (Ortszeit Europe/Berlin), Fenster 2 h, `sent_m`/`sent_c` verhindern Doppelversand.
+- App: lokal `tracker-push` = `{on, ep}`; beim Start prüft `puCheck`, ob das Abo noch da ist bzw. sich die Adresse geändert hat. „Auf diesem Gerät trennen“ meldet auch die Mitteilungen ab. `sw.js`: `push` und `notificationclick`.
+- Workout-Vorschläge („Von der Uhr“) entfernt – Kurzbefehle können auf dem iPhone keine Workouts lesen. Alte `hwx`-Einträge bleiben harmlos in den Daten.
+- Tests `tests/t15.py` (neu), `tests/t14.py` angepasst.
