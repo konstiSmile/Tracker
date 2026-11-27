@@ -259,11 +259,11 @@ svg text{fill:var(--mut);font-size:9px;font-family:inherit}
 .seg button.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:var(--sh-1)}
 .setrow{display:flex;gap:var(--s-1);align-items:center;margin-bottom:var(--s-1)}
 .setrow input[type=text]{flex:1}
-details.card summary{cursor:pointer;font:var(--fw-serif) var(--fs-2) var(--serif);list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:var(--tap);margin:-12px 0}
-details.card summary::-webkit-details-marker{display:none}
-details.card summary::after{content:"";width:24px;height:24px;flex:none;background:var(--mut);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5L16 12l-6.500 6.500'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5L16 12l-6.500 6.500'/%3E%3C/svg%3E") center/contain no-repeat;transition:transform var(--t-med) var(--ease)}
-details.card[open] summary::after{transform:rotate(90deg)}
-details.card[open] summary{margin-bottom:var(--s-1)}
+details.card summary,details.sub summary{cursor:pointer;font:var(--fw-serif) var(--fs-2) var(--serif);list-style:none;display:flex;justify-content:space-between;align-items:center;min-height:var(--tap);margin:-12px 0}
+details.card summary::-webkit-details-marker,details.sub summary::-webkit-details-marker{display:none}
+details.card summary::after,details.sub summary::after{content:"";width:24px;height:24px;flex:none;background:var(--mut);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5L16 12l-6.500 6.500'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5L16 12l-6.500 6.500'/%3E%3C/svg%3E") center/contain no-repeat;transition:transform var(--t-med) var(--ease)}
+details.card[open]>summary::after,details.sub[open]>summary::after{transform:rotate(90deg)}
+details.card[open]>summary{margin-bottom:var(--s-1)}
 details.card>*:not(summary){margin-top:var(--s-2)}
 .icpick{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--s-1)}
 .icpick button{aspect-ratio:1;min-height:var(--tap);border-radius:var(--r-s);background:var(--inset);display:grid;place-items:center}
@@ -381,3 +381,14 @@ body.noscroll{overflow:hidden}
 .card.hlbig{display:flex;flex-direction:column;gap:var(--s-1)}
 .card.hlbig h3{font:var(--fw-serif) var(--fs-3) var(--serif)}
 .card.hlbig .btn{min-height:56px;font-size:var(--fs-2);margin-top:var(--s-1)}
+/* 4.4 aufklappbare Gruppen */
+details.grp summary span{display:flex;flex-direction:column}
+details.grp summary small{font:400 var(--fs-1)/1.3 var(--sans);color:var(--mut)}
+details.grp summary{min-height:56px}
+details.sub{background:var(--bg);border-radius:var(--r-m);padding:0 var(--s-2)}
+details.sub summary{font:600 var(--fs-1) var(--sans);margin:0;min-height:52px}
+details.sub>label{display:block}
+details.sub[open]{padding-bottom:var(--s-2)}
+details.sub[open] summary{margin-bottom:var(--s-1)}
+details.sub>*:not(summary){margin-top:var(--s-2)}
+details.grp>details.sub{margin-top:var(--s-1)}

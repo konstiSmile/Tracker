@@ -198,3 +198,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 ## Version 4.3 (27.11.2026) – Einstellungen aufgeräumt, große Sync-Karte
 - Einstellungen in vier Gruppen (`.sgh`): Erfassen (Koffein, Sportarten, Gewohnheiten) · Verbindungen (Sync, Apple Health, Mitteilungen) · Daten (Backup = Kopie + Google-Tabelle; Import inkl. „Auftrag für Claude“) · App (Darstellung, App-Ideen, Version und Update). „Alle Daten löschen“ als eigener Knopf ganz unten. Erklärtexte gekürzt.
 - Heute: Fehlen die Uhrdaten (gleiche Bedingung wie bisher, `hlDue`), steht ganz oben eine große Karte „Synchronisieren“ mit Knopf „Jetzt synchronisieren“ (startet den Kurzbefehl).
+
+## Version 4.4 (27.11.2026) – Einstellungen aufklappbar
+- Die vier Gruppen sind jetzt aufklappbare Karten (`details.card.grp`, Unterzeile mit Inhalt), darin die Unterpunkte als aufklappbare Felder (`details.sub`). Auf/zu bleibt beim Neuzeichnen erhalten (`data-k`, `S.dk`, `toggle`-Listener). Gruppen öffnen sich selbst, wenn ein Unterpunkt etwas zeigen muss (Sync-Nachfrage, Import-Meldung, Mitteilungs-Meldung).

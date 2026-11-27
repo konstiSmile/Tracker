@@ -47,7 +47,7 @@ with sync_playwright() as p:
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('http://localhost:8766/'); pg.wait_for_timeout(1200); pg.add_style_tag(content='#fb{pointer-events:none}')
     pg.evaluate("S.tab='set';render()")
-    pg.locator('summary', has_text='Mitteilungen').click(); pg.wait_for_timeout(150)
+    pg.locator('[data-k=g-verb]>summary').click(); pg.locator('[data-k=s-Mitteilungen]>summary').click(); pg.wait_for_timeout(150)
     t = pg.inner_text('#app')
     res.append(('abschnitt', '6:30 Uhr' in t and '9:00 Uhr' in t and pg.locator('[data-act=puon]').count() == 1))
     pg.locator('[data-act=puon]').click(); pg.wait_for_timeout(800)

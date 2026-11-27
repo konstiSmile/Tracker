@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.3';
+const VERSION = '4.4';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -428,7 +428,7 @@ async function puCheck() {
 }
 function puSection() {
   const on = puSt().on;
-  return `<details class="card" ${S.puOpen ? 'open' : ''}><summary>Mitteilungen</summary>
+  return `<details class="sub" data-k="s-Mitteilungen" ${S.puOpen ? 'open' : ''}><summary>Mitteilungen</summary>
     <small class="mut">Um 6:30 Uhr und 9:00 Uhr, nur wenn Uhrdaten fehlen.</small>
     ${on ? `<div class="kv"><span>Status</span><span>Eingeschaltet</span></div>
       <div class="row"><button class="btn grow" data-act="putest">Test senden</button><button class="btn grow" data-act="puoff">Ausschalten</button></div>`
@@ -461,7 +461,7 @@ function moodField(mlog, mact) {
 function sec(d, k) { const x = day(d, true); return x[k] || (x[k] = k === 'coffee' || k === 'sport' ? [] : {}); }
 
 /* ---------- Zustand ---------- */
-const S = { fold: {}, slf: {}, tab: 'heute', date: todayStr(), week: weekStart(todayStr()), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
+const S = { dk: {}, fold: {}, slf: {}, tab: 'heute', date: todayStr(), week: weekStart(todayStr()), open: {}, vtab: 'ueb', range: 30, year: new Date().getFullYear(), sp: null, qi: {}, impMsg: '' };
 
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
@@ -595,6 +595,7 @@ function render() {
   applyTheme();
   const v = S.tab === 'heute' ? viewHeute() : S.tab === 'verlauf' ? viewVerlauf() : viewSettings();
   $('#app').innerHTML = v;
+  document.querySelectorAll('#app details[data-k]').forEach(d => { if (S.dk[d.dataset.k]) d.open = true; });
   $('#tabs').innerHTML = [['heute', 'tab_heute', 'Heute'], ['verlauf', 'tab_verlauf', 'Verlauf'], ['set', 'tab_set', 'Einstellungen']]
     .map(([k, i, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span></button>`).join('');
   if (S.tab === 'verlauf' && S.vtab === 'sport') { const h = $('.hscroll'); if (h && S.year === new Date().getFullYear()) h.scrollLeft = h.scrollWidth * (new Date().getMonth() / 12) - 80; }
@@ -884,26 +885,28 @@ function viewSettings() {
   const c = DB.cfg;
   const list = (kind, items) => `<div class="chips ${AREA[kind]}">${items.map(it => `<button class="chip ${it.hid ? 'hidc' : ''}" data-act="edit" data-kind="${kind}" data-id="${it.id}">${ic(itIc(kind, it))}<span>${esc(it.name)}</span>${kind === 'coffee' ? `<small>${it.mg}</small>` : ''}</button>`).join('')}<button class="chip new" data-act="edit" data-kind="${kind}" data-id="_new">${gl('plus')}<span>Neu</span></button></div><small class="mut">Antippen zum Bearbeiten. Blasse Einträge sind versteckt und stehen unter „weitere“.</small>`;
   return `<h2>Einstellungen</h2>
-  <div class="sgh">Erfassen</div>
-  <details class="card"><summary>Koffein</summary>
+  <details class="card grp" data-k="g-erf"><summary><span>Erfassen<small>Koffein, Sportarten, Gewohnheiten</small></span></summary>
+  <details class="sub" data-k="s-Koffein"><summary>Koffein</summary>
     <label class="mut">Tageslimit (mg)<br><input type="number" inputmode="numeric" data-cfgv="limit" value="${c.limit}"></label>
     <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 6}"></label>
     <small class="mut">Richtwert für Erwachsene: etwa 400 mg pro Tag.</small>
     ${list('coffee', c.coffee)}
     <small class="mut">„≈“ = geschätzt (CoffeeB nennt keine Werte).</small></details>
-  <details class="card"><summary>Sportarten</summary>
+  <details class="sub" data-k="s-Sportarten"><summary>Sportarten</summary>
     ${list('sports', c.sports)}</details>
-  <details class="card"><summary>Gewohnheiten</summary>
+  <details class="sub" data-k="s-Gewohnheiten"><summary>Gewohnheiten</summary>
     ${list('habits', c.habits)}
     <small class="mut">Alte Einträge bleiben erhalten, auch wenn du eine Gewohnheit löschst.</small></details>
-  <div class="sgh">Verbindungen</div>
+  </details>
+  <details class="card grp" data-k="g-verb" ${S.sbFirst || S.sbOpen || S.sbShow || S.puOpen || (sbSt() && (sbSt().delHold || []).length) ? 'open' : ''}><summary><span>Verbindungen<small>Sync, Apple Health, Mitteilungen</small></span></summary>
   ${sbSection()}
-  ${sbSt() ? `<details class="card"><summary>Apple Health</summary>
+  ${sbSt() ? `<details class="sub" data-k="s-Apple Health"><summary>Apple Health</summary>
     <small class="mut">Kurzbefehl „${HL_SC}“: Schlaf, Ruhepuls, HRV, Schritte. Füllt nur leere Felder.</small>
     <div class="kv"><span>Letzte Daten</span><span>${(() => { const k = Object.keys(hlAll()).sort(); return k.length ? parse(k[k.length - 1]).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }) : 'noch keine'; })()}</span></div>
     <button class="btn" data-act="hlrun">Kurzbefehl jetzt ausführen</button></details>${puSection()}` : ''}
-  <div class="sgh">Daten</div>
-  <details class="card"><summary>Backup</summary>
+  </details>
+  <details class="card grp" data-k="g-dat" ${S.impMsg ? 'open' : ''}><summary><span>Daten<small>Backup, Import</small></span></summary>
+  <details class="sub" data-k="s-Backup"><summary>Backup</summary>
     <div class="lbl">Als Kopie</div>
     <div class="row"><button class="btn" data-act="copyexp">Backup kopieren</button><button class="btn" data-act="dlexp">Als Datei</button></div>
     <div class="lbl">Google-Tabelle</div>
@@ -911,7 +914,7 @@ function viewSettings() {
     <div class="mut">Passwort<div class="pw masked${syncCfg().key ? ' has' : ''}"><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" value="${esc(syncCfg().key || '')}"><span class="pwdots" aria-hidden="true">••••••••••</span><button type="button" class="pweye" data-act="pweye" aria-label="Passwort anzeigen oder verbergen">${gl('eye')}</button></div></div>
     <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
     <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Die App sichert einmal am Tag automatisch, beim ersten Öffnen ab 4 Uhr.</small></details>
-  <details class="card" ${S.impMsg ? 'open' : ''}><summary>Import</summary>
+  <details class="sub" data-k="s-Import" ${S.impMsg ? 'open' : ''}><summary>Import</summary>
     <small class="mut">Backup oder JSON von Claude einfügen.</small>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
     <div class="row"><button class="btn pri" data-act="imp" data-m="merge">Zusammenführen</button><button class="btn danger" data-act="imp" data-m="replace">Alles ersetzen</button></div>
@@ -919,20 +922,21 @@ function viewSettings() {
     <div class="lbl">Für Claude</div>
     <button class="btn" data-act="copyprompt">Auftrag für Claude kopieren</button>
     <small class="mut">Mit Screenshot in den Chat einfügen, Antwort hier importieren.</small></details>
-  <div class="sgh">App</div>
-  <details class="card"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
-  <details class="card"><summary>App-Ideen</summary>
+  </details>
+  <details class="card grp" data-k="g-app"><summary><span>App<small>Darstellung, Ideen, Version</small></span></summary>
+  <details class="sub" data-k="s-Darstellung"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
+  <details class="sub" data-k="s-App-Ideen"><summary>App-Ideen</summary>
     <textarea data-cfgt="ideas" placeholder="Was dir für die App einfällt. Eine Idee pro Zeile.">${esc(c.ideas || '')}</textarea>
     <small class="mut">Nur zum Sammeln, eine Idee pro Zeile.</small></details>
-  <details class="card"><summary>Version und Update</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
+  <details class="sub" data-k="s-Version und Update"><summary>Version und Update</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
     <button class="btn" data-act="update">Nach Update suchen</button>
-    ${sbSt() ? '' : '<small class="mut">Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.</small>'}</details>
+    ${sbSt() ? '' : '<small class="mut">Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.</small>'}</details></details>
   <button class="btn danger wipe" data-act="wipe">Alle Daten löschen</button>`;
 }
 
 function sbSection() {
   const st = sbSt(), F = S.sbFirst;
-  if (!st) return `<details class="card" ${F || S.sbOpen ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
+  if (!st) return `<details class="sub" data-k="s-Sync zwischen Geräten" ${F || S.sbOpen ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
     ${F ? `<p>Auf diesem Gerät und online gibt es schon Daten (${F.n} Tage online).</p>
       <div class="row"><button class="btn pri grow" data-act="sbfirst" data-m="merge">Zusammenführen</button><button class="btn grow" data-act="sbfirst" data-m="take">Online-Daten übernehmen</button></div>
       <small class="hint">Übernehmen ersetzt die Daten auf diesem Gerät. Zusammenführen behält beides und fragt bei Widersprüchen nach.</small>
@@ -945,7 +949,7 @@ function sbSection() {
     ${S.sbMsg ? `<small class="hint">${esc(S.sbMsg)}</small>` : ''}</details>`;
   const t = st.last ? new Date(st.last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '';
   const hold = st.delHold || [], asks = sbAskDays();
-  return `<details class="card" ${S.sbOpen || hold.length || S.sbShow ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
+  return `<details class="sub" data-k="s-Sync zwischen Geräten" ${S.sbOpen || hold.length || S.sbShow ? 'open' : ''}><summary>Sync zwischen Geräten</summary>
     <div class="kv"><span>Stand</span><span>${st.err ? 'Fehler beim Abgleich' : t ? 'Abgeglichen ' + t : 'Noch nicht abgeglichen'}</span></div>
     ${st.err ? `<small class="hint">${esc(st.err)}</small>` : ''}
     ${asks.length ? `<button class="btn pri" data-act="sbask">Unterschiede klären (${asks.length} ${asks.length === 1 ? 'Tag' : 'Tage'})</button>` : ''}
@@ -1564,6 +1568,7 @@ function moodSet(v, en) {
   if (S.ci) $('#sbody').innerHTML = ciSheet(); else fbCheck('mood');
 }
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button][data-act]')) { e.preventDefault(); e.target.click(); } });
+document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.k) S.dk[d.dataset.k] = d.open; }, true);
 document.addEventListener('click', e => {
   if (LP.fired) { LP.fired = false; e.preventDefault(); return; }
   if (e.target.dataset && e.target.dataset.rng === 'mood') { moodCommit(e.target); return; }
