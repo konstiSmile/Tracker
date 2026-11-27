@@ -223,3 +223,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ## Version 4.9 (27.11.2026) – Gewohnheiten-Reihenfolge
 - Reihenfolge Positiv · Negativ · Automatisch. „Automatisch · x von 4“ ist standardmäßig zugeklappt (`S.open.hauto`, gilt bis zum Neustart der App).
+
+## Version 4.10 (27.11.2026)
+- `translateZ(0)` an `#tabs` wieder entfernt (veränderte die Leiste auf dem iPhone). Gegen das Verrutschen bleibt `vpFix()`.
