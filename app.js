@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.8';
+const VERSION = '4.9';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -685,8 +685,9 @@ function viewHeute() {
 `;
   P.habit = `
     <div class="lbl" style="margin-top:0">Positiv</div>${hgrp('pos')}
-    <div class="lbl">Automatisch</div><div class="hgrid">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>
     <div class="lbl">Negativ (antippen, wenn es passiert ist)</div>${hgrp('neg')}
+    <button class="morehid autoh" data-act="tog" data-k="hauto" aria-expanded="${!!S.open.hauto}">Automatisch · ${AUTO_H.filter(a => a.f(d)).length} von ${AUTO_H.length}${arrow(S.open.hauto)}</button>
+    ${S.open.hauto ? `<div class="hgrid">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>` : ''}
     ${hintLP('Lange drücken: bearbeiten, verstecken, löschen')}
 `;
   const M = {

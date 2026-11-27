@@ -220,3 +220,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 ## Version 4.8 (27.11.2026) – Leiste unten rutscht nicht mehr
 - iOS-Home-Bildschirm: nach dem Schließen der Tastatur blieb die Ansicht verschoben, die Tab-Leiste stand mitten im Bild. `vpFix()` (Mini-Scroll) nach `focusout` von Eingabefeldern, bei `visualViewport`-Vergrößerung und in `closeSheet`; `#tabs` mit `translateZ(0)`. Falls es weiter auftritt: Grundumbau auf eigenen Scroll-Bereich (`#app` mit 100dvh) statt Seiten-Scroll.
 - „Koffein‑Stopp“ heißt jetzt „Kein Koffein ab 14 Uhr“ (offen: „läuft noch“).
+
+## Version 4.9 (27.11.2026) – Gewohnheiten-Reihenfolge
+- Reihenfolge Positiv · Negativ · Automatisch. „Automatisch · x von 4“ ist standardmäßig zugeklappt (`S.open.hauto`, gilt bis zum Neustart der App).
