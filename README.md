@@ -208,3 +208,7 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Schlaf-Karte: Fragen (Erholung, Einschlafen, nachts wach, Aufwachen), manuelle Uhr-Werte und Screenshot-Tipp entfernt; zeigt Zeiten, Uhrdaten, Zusammenfassung des Morgen-Check-ins und Knopf dorthin. Alte Werte (`wakes`, `morning`, `score`) bleiben in den Daten.
 - Import: „Auftrag für Claude“ (Screenshot) entfernt.
 - `mfMove` sucht Gesicht/Text im eigenen Kasten (Stimmungsfeld funktioniert auch im Blatt). Test `tests/t16.py`.
+
+## Version 4.6 (27.11.2026) – neue Gewohnheiten
+- Positiv neu (sichtbar): Morgens Tageslicht (`h21`), Pause ohne Handy (`h22`), Abends runtergefahren (`h23`). Migration `cfg.v < 9` fügt sie bestehenden Listen hinzu.
+- Bewusst nicht gebaut: Bewegungspunkte/Belastungs-Stufen – Daten (Schritte, Sport) werden ohnehin erfasst, Bewertung kann später nachgerüstet werden.

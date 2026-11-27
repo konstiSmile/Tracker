@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.5';
+const VERSION = '4.6';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -31,7 +31,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 6, v: 8, seen: {}, fold: {}, wxLoc: 'gps',
+  theme: 'light', limit: 400, halfLife: 6, v: 9, seen: {}, fold: {}, wxLoc: 'gps',
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -87,7 +87,10 @@ const DEF_CFG = {
     { id: 'h17', name: 'Aufgeschoben', type: 'neg', e: '⏳', hid: true },
     { id: 'h18', name: 'Zu lange gesessen', type: 'neg', e: '🪑', hid: true },
     { id: 'h19', name: 'Mahlzeit ausgelassen', type: 'neg', e: '🍽️', hid: true },
-    { id: 'h20', name: 'Bildschirm im Bett', type: 'neg', e: '🛌', hid: true }
+    { id: 'h20', name: 'Bildschirm im Bett', type: 'neg', e: '🛌', hid: true },
+    { id: 'h21', name: 'Morgens Tageslicht', type: 'pos', e: '🌅', i: 'sonnenaufgang' },
+    { id: 'h22', name: 'Pause ohne Handy', type: 'pos', e: '🧘', i: 'lotus' },
+    { id: 'h23', name: 'Abends runtergefahren', type: 'pos', e: '🌙', i: 'spaet' }
   ]
 };
 
@@ -143,7 +146,8 @@ function norm(r) {
     const weg = ['h6', 'h16']; r.cfg.habits = r.cfg.habits.filter(h => !weg.includes(h.id));
     Object.keys(r.days).forEach(d => { const D = r.days[d]; if (D.habits) { weg.forEach(k => delete D.habits[k]); if (!Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete r.days[d]; } });
   }
-  r.cfg.v = 8;
+  if (sv < 9) DEF_CFG.habits.filter(d => ['h21', 'h22', 'h23'].includes(d.id)).forEach(d => { if (!r.cfg.habits.some(x => x.id === d.id)) r.cfg.habits.push(JSON.parse(JSON.stringify(d))); });   // Version 4.6: drei neue positive Gewohnheiten
+  r.cfg.v = 9;
   return r;
 }
 let saveTimer = 0;
