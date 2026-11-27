@@ -42,7 +42,7 @@ small,.mut{color:var(--mut)}
 .hint{display:block;color:var(--mut);margin-top:var(--s-2)}
 
 /* Tab-Leiste: sitzt am unteren Rand, füllt die sichere Zone mit */
-#tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:var(--s-1);background:var(--card);border-radius:var(--r-l) var(--r-l) 0 0;box-shadow:0 -2px 4px rgba(122,74,52,.04),0 -12px 32px rgba(122,74,52,.1);padding:var(--s-1) var(--s-2) calc(env(safe-area-inset-bottom) + var(--s-1));z-index:5}
+#tabs{position:fixed;left:0;right:0;bottom:0;transform:translateZ(0);display:flex;justify-content:center;gap:var(--s-1);background:var(--card);border-radius:var(--r-l) var(--r-l) 0 0;box-shadow:0 -2px 4px rgba(122,74,52,.04),0 -12px 32px rgba(122,74,52,.1);padding:var(--s-1) var(--s-2) calc(env(safe-area-inset-bottom) + var(--s-1));z-index:5}
 [data-theme=dark] #tabs{box-shadow:0 -12px 32px rgba(0,0,0,.35)}
 #tabs button{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mut);padding:var(--s-1) 0 6px;border-radius:var(--r-m);line-height:1.25}
 #tabs .ic{width:28px;height:28px;--t2:color-mix(in srgb,var(--mut) 34%,var(--card));--t3:color-mix(in srgb,var(--mut) 58%,var(--card));--t4:color-mix(in srgb,var(--mut) 88%,var(--card))}

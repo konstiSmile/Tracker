@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.7';
+const VERSION = '4.8';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -711,7 +711,7 @@ function viewHeute() {
 }
 /* Automatische Gewohnheiten (4.7): werden aus den Einträgen berechnet, nicht gespeichert. f(d) = true/false/null (null = noch offen oder keine Daten). */
 const AUTO_H = [
-  { id: 'a_kof', name: 'Koffein\u2011Stopp', i: 'tasse', open: 'ab 14 Uhr', f: d => {
+  { id: 'a_kof', name: 'Kein Koffein ab 14 Uhr', i: 'tasse', open: 'läuft noch', f: d => {
     const D = day(d); if (d !== todayStr() && !Object.keys(D).length) return null;
     if ((D.coffee || []).some(x => x.t && x.t >= '14:00')) return false;
     return d === todayStr() && new Date().getHours() < 14 ? null : true; } },
@@ -1206,7 +1206,7 @@ function copy(txt, msg) {
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast(msg), fb); else fb();
 }
 function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
-function closeSheet() { $('#sheet').hidden = true; S.wxs = 0; S.sp = null; S.ed = null; S.ci = null; S.mo = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
+function closeSheet() { $('#sheet').hidden = true; S.wxs = 0; S.sp = null; S.ed = null; S.ci = null; S.mo = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll');  vpFix(); }
 
 /* Kleines Menü bei langem Drücken: Bearbeiten, Verstecken, Löschen. Tippen daneben schließt es. */
 function openMenu(kind, id, el) {
@@ -1592,6 +1592,11 @@ function moodSet(v, en) {
   if (S.ci || S.mo) $('#sbody').innerHTML = S.ci ? ciSheet() : moSheet(); else fbCheck('mood');
 }
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button][data-act]')) { e.preventDefault(); e.target.click(); } });
+/* iOS (Home-Bildschirm): Nach dem Schließen der Tastatur bleibt die Ansicht manchmal verschoben, die feste Leiste unten rutscht dann nach oben.
+   Ein Mini-Scroll setzt die Ansicht zurück – nach Verlassen eines Eingabefelds, wenn die Tastatur weg ist, und nach dem Schließen eines Blatts. */
+function vpFix() { setTimeout(() => { if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea')) return; window.scrollTo(window.scrollX, window.scrollY + 1); window.scrollTo(window.scrollX, window.scrollY - 1); }, 60); }
+document.addEventListener('focusout', e => { if (e.target.matches && e.target.matches('input,textarea')) vpFix(); });
+if (window.visualViewport) { let vh = visualViewport.height; visualViewport.addEventListener('resize', () => { if (visualViewport.height > vh + 80) vpFix(); vh = visualViewport.height; }); }
 document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.k) S.dk[d.dataset.k] = d.open; }, true);
 document.addEventListener('click', e => {
   if (LP.fired) { LP.fired = false; e.preventDefault(); return; }

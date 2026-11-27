@@ -23,7 +23,7 @@ with sync_playwright() as p:
     g = pg.evaluate("['21:30','22:00','22:01','23:00','23:59','00:10'].map(b => AUTO_H.slice(1).map(a => { DB.days['2026-11-20'] = {sleep:{bed:b}}; return a.f('2026-11-20'); }))")
     res.append(('stufen', g == [[True,True,True],[True,True,True],[False,True,True],[False,True,True],[False,False,True],[False,False,False]], g))
     pg.evaluate("DB.cfg.fold={};render()"); t = pg.inner_text('.card.a-habit')
-    res.append(('karte', 'Automatisch' in t and 'Koffein\u2011Stopp' in t and '2 Tage in Folge' in t))
+    res.append(('karte', 'Automatisch' in t and 'Kein Koffein ab 14 Uhr' in t and '2 Tage in Folge' in t))
     pg.locator('.card.a-habit').screenshot(path='/tmp/auto.png')
     pg.evaluate(f"day('{ds(0)}').coffee.push({{id:'c9',t:'14:20',name:'Cola',mg:33}});render()")
     res.append(('nach 14 uhr', 'diesmal nicht' in pg.inner_text('.card.a-habit')))

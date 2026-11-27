@@ -216,3 +216,7 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 ## Version 4.7 (27.11.2026) – automatische Gewohnheiten
 - Gewohnheiten-Karte, Abschnitt „Automatisch“ (`AUTO_H`, `autoHab`, `autoStreak`; nur berechnet, nicht gespeichert, nicht antippbar): Koffein‑Stopp (kein Eintrag ab 14:00; heute vor 14 Uhr offen), Vor 22 Uhr / Vor 23 Uhr / Vor Mitternacht geschlafen (aus `sleep.bed`, 18:00 bis einschließlich Grenze; früher = alle Stufen). „x Tage in Folge“; Tage ohne Daten zählen als offen.
 - `.hgrid` Spalten `minmax(0,1fr)` (lange Namen sprengen das Raster nicht mehr). Test `tests/t17.py`.
+
+## Version 4.8 (27.11.2026) – Leiste unten rutscht nicht mehr
+- iOS-Home-Bildschirm: nach dem Schließen der Tastatur blieb die Ansicht verschoben, die Tab-Leiste stand mitten im Bild. `vpFix()` (Mini-Scroll) nach `focusout` von Eingabefeldern, bei `visualViewport`-Vergrößerung und in `closeSheet`; `#tabs` mit `translateZ(0)`. Falls es weiter auftritt: Grundumbau auf eigenen Scroll-Bereich (`#app` mit 100dvh) statt Seiten-Scroll.
+- „Koffein‑Stopp“ heißt jetzt „Kein Koffein ab 14 Uhr“ (offen: „läuft noch“).
