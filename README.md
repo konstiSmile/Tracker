@@ -194,3 +194,7 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - App: lokal `tracker-push` = `{on, ep}`; beim Start prüft `puCheck`, ob das Abo noch da ist bzw. sich die Adresse geändert hat. „Auf diesem Gerät trennen“ meldet auch die Mitteilungen ab. `sw.js`: `push` und `notificationclick`.
 - Workout-Vorschläge („Von der Uhr“) entfernt – Kurzbefehle können auf dem iPhone keine Workouts lesen. Alte `hwx`-Einträge bleiben harmlos in den Daten.
 - Tests `tests/t15.py` (neu), `tests/t14.py` angepasst.
+
+## Version 4.3 (27.11.2026) – Einstellungen aufgeräumt, große Sync-Karte
+- Einstellungen in vier Gruppen (`.sgh`): Erfassen (Koffein, Sportarten, Gewohnheiten) · Verbindungen (Sync, Apple Health, Mitteilungen) · Daten (Backup = Kopie + Google-Tabelle; Import inkl. „Auftrag für Claude“) · App (Darstellung, App-Ideen, Version und Update). „Alle Daten löschen“ als eigener Knopf ganz unten. Erklärtexte gekürzt.
+- Heute: Fehlen die Uhrdaten (gleiche Bedingung wie bisher, `hlDue`), steht ganz oben eine große Karte „Synchronisieren“ mit Knopf „Jetzt synchronisieren“ (startet den Kurzbefehl).

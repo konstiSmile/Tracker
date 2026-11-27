@@ -75,5 +75,5 @@ with sync_playwright() as p:
 srv.terminate()
 # Service Worker: Push zeigt Mitteilung, Tippen öffnet die App
 sw = open('/home/claude/tracker/sw.js').read()
-res.append(('sw push', "addEventListener('push'" in sw and 'showNotification' in sw and "addEventListener('notificationclick'" in sw and 'tracker-v32' in sw))
+res.append(('sw push', "addEventListener('push'" in sw and 'showNotification' in sw and "addEventListener('notificationclick'" in sw and "const CACHE = 'tracker-v" in sw))
 for r in res: print('OK ' if r[1] else 'FEHLER', r[0], *(r[2:] if not r[1] else []))

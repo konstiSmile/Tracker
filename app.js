@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.2';
+const VERSION = '4.3';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -429,7 +429,7 @@ async function puCheck() {
 function puSection() {
   const on = puSt().on;
   return `<details class="card" ${S.puOpen ? 'open' : ''}><summary>Mitteilungen</summary>
-    <small class="mut">Erinnert dich um 6:30 Uhr, die Daten von der Uhr zu holen, und um 9:00 Uhr nochmal, falls sie noch fehlen. Sind sie schon da, kommt nichts.</small>
+    <small class="mut">Um 6:30 Uhr und 9:00 Uhr, nur wenn Uhrdaten fehlen.</small>
     ${on ? `<div class="kv"><span>Status</span><span>Eingeschaltet</span></div>
       <div class="row"><button class="btn grow" data-act="putest">Test senden</button><button class="btn grow" data-act="puoff">Ausschalten</button></div>`
     : `<button class="btn pri" data-act="puon">Mitteilungen einschalten</button>`}
@@ -706,7 +706,7 @@ function viewHeute() {
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
   const nAsk = isToday ? sbAskDays().length : 0, hlDue = isToday && hr >= 5 && sbSt() && Object.keys(hlAll()).length && !hlToday();
-  const top = (hlDue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="hlrun"><div class="tile on-g">${tile('sleep')}</div><h3>Daten von der Uhr holen<small>Startet den Kurzbefehl „${HL_SC}“</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
+  const top = (hlDue ? `<section class="card hlbig a-sleep"><h3>Synchronisieren</h3><small class="mut">Schlaf und Werte von der Uhr fehlen für heute.</small><button class="btn pri" data-act="hlrun">Jetzt synchronisieren</button></section>` : '') + (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
     + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>7 kurze Schritte, etwa eine Minute</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
@@ -884,45 +884,50 @@ function viewSettings() {
   const c = DB.cfg;
   const list = (kind, items) => `<div class="chips ${AREA[kind]}">${items.map(it => `<button class="chip ${it.hid ? 'hidc' : ''}" data-act="edit" data-kind="${kind}" data-id="${it.id}">${ic(itIc(kind, it))}<span>${esc(it.name)}</span>${kind === 'coffee' ? `<small>${it.mg}</small>` : ''}</button>`).join('')}<button class="chip new" data-act="edit" data-kind="${kind}" data-id="_new">${gl('plus')}<span>Neu</span></button></div><small class="mut">Antippen zum Bearbeiten. Blasse Einträge sind versteckt und stehen unter „weitere“.</small>`;
   return `<h2>Einstellungen</h2>
-  <details class="card"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
+  <div class="sgh">Erfassen</div>
   <details class="card"><summary>Koffein</summary>
     <label class="mut">Tageslimit (mg)<br><input type="number" inputmode="numeric" data-cfgv="limit" value="${c.limit}"></label>
     <label class="mut">Halbwertszeit von Koffein (Stunden, meist 3 bis 7)<br><input type="number" inputmode="decimal" step="0.5" data-cfgv="halfLife" value="${c.halfLife || 6}"></label>
-    <small class="mut">Als Orientierung gelten für gesunde Erwachsene etwa 400 mg pro Tag. Die Werte unten sind grobe Richtwerte und du kannst sie ändern.</small>
+    <small class="mut">Richtwert für Erwachsene: etwa 400 mg pro Tag.</small>
     ${list('coffee', c.coffee)}
-    <small class="mut">CoffeeB-Werte sind geschätzt (Hersteller nennt keinen Wert; ca. 6 g Arabica pro Ball). Wenn du den mg-Wert änderst, entfällt das „≈“.</small></details>
+    <small class="mut">„≈“ = geschätzt (CoffeeB nennt keine Werte).</small></details>
   <details class="card"><summary>Sportarten</summary>
     ${list('sports', c.sports)}</details>
   <details class="card"><summary>Gewohnheiten</summary>
     ${list('habits', c.habits)}
     <small class="mut">Alte Einträge bleiben erhalten, auch wenn du eine Gewohnheit löschst.</small></details>
+  <div class="sgh">Verbindungen</div>
   ${sbSection()}
   ${sbSt() ? `<details class="card"><summary>Apple Health</summary>
-    <small class="mut">Der Kurzbefehl „${HL_SC}“ holt Schlaf, Ruhepuls, HRV und Schritte von der Uhr. Übernommen wird nur, was du noch nicht eingetragen hast. Sport trägst du selbst ein.</small>
+    <small class="mut">Kurzbefehl „${HL_SC}“: Schlaf, Ruhepuls, HRV, Schritte. Füllt nur leere Felder.</small>
     <div class="kv"><span>Letzte Daten</span><span>${(() => { const k = Object.keys(hlAll()).sort(); return k.length ? parse(k[k.length - 1]).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' }) : 'noch keine'; })()}</span></div>
     <button class="btn" data-act="hlrun">Kurzbefehl jetzt ausführen</button></details>${puSection()}` : ''}
-  <details class="card" ${S.impMsg ? 'open' : ''}><summary>Daten, Backup und Import</summary>
-    <div class="lbl" style="margin-top:0">Import (z. B. von Claude ausgewertete Uhr-Screenshots, oder ein Backup)</div>
+  <div class="sgh">Daten</div>
+  <details class="card"><summary>Backup</summary>
+    <div class="lbl">Als Kopie</div>
+    <div class="row"><button class="btn" data-act="copyexp">Backup kopieren</button><button class="btn" data-act="dlexp">Als Datei</button></div>
+    <div class="lbl">Google-Tabelle</div>
+    <label class="mut">Web-App-Adresse<br><input type="url" data-sync="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(syncCfg().url || '')}"></label>
+    <div class="mut">Passwort<div class="pw masked${syncCfg().key ? ' has' : ''}"><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" value="${esc(syncCfg().key || '')}"><span class="pwdots" aria-hidden="true">••••••••••</span><button type="button" class="pweye" data-act="pweye" aria-label="Passwort anzeigen oder verbergen">${gl('eye')}</button></div></div>
+    <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
+    <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Die App sichert einmal am Tag automatisch, beim ersten Öffnen ab 4 Uhr.</small></details>
+  <details class="card" ${S.impMsg ? 'open' : ''}><summary>Import</summary>
+    <small class="mut">Backup oder JSON von Claude einfügen.</small>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
     <div class="row"><button class="btn pri" data-act="imp" data-m="merge">Zusammenführen</button><button class="btn danger" data-act="imp" data-m="replace">Alles ersetzen</button></div>
     ${S.impMsg ? `<small>${esc(S.impMsg)}</small>` : ''}
     <div class="lbl">Für Claude</div>
     <button class="btn" data-act="copyprompt">Auftrag für Claude kopieren</button>
-    <small class="mut">Einfügen im Chat zusammen mit dem Screenshot. Claude antwortet mit dem JSON für den Import.</small>
-    <div class="lbl">Export</div>
-    <div class="row"><button class="btn" data-act="copyexp">Backup kopieren</button><button class="btn" data-act="dlexp">Als Datei</button></div>
-    <div class="lbl">Backup in Google Tabelle</div>
-    <label class="mut">Web-App-Adresse<br><input type="url" data-sync="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(syncCfg().url || '')}"></label>
-    <div class="mut">Passwort<div class="pw masked${syncCfg().key ? ' has' : ''}"><input type="text" data-sync="key" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" value="${esc(syncCfg().key || '')}"><span class="pwdots" aria-hidden="true">••••••••••</span><button type="button" class="pweye" data-act="pweye" aria-label="Passwort anzeigen oder verbergen">${gl('eye')}</button></div></div>
-    <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
-    <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Die App sichert einmal am Tag automatisch, beim ersten Öffnen ab 4 Uhr.</small>
-    <div class="lbl">Gefahrenzone</div><button class="btn danger" data-act="wipe">Alle Daten löschen</button></details>
+    <small class="mut">Mit Screenshot in den Chat einfügen, Antwort hier importieren.</small></details>
+  <div class="sgh">App</div>
+  <details class="card"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
   <details class="card"><summary>App-Ideen</summary>
     <textarea data-cfgt="ideas" placeholder="Was dir für die App einfällt. Eine Idee pro Zeile.">${esc(c.ideas || '')}</textarea>
-    <small class="mut">Nur zum Sammeln, hier wird nichts umgesetzt. Wird mit dem Backup gesichert.</small></details>
-  <details class="card"><summary>App</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
+    <small class="mut">Nur zum Sammeln, eine Idee pro Zeile.</small></details>
+  <details class="card"><summary>Version und Update</summary><div class="kv"><span>Version</span><span>${VERSION}</span></div><div class="kv"><span>Einträge</span><span>${allDates().length} Tage</span></div>
     <button class="btn" data-act="update">Nach Update suchen</button>
-    <small class="mut">${sbSt() ? 'Daten werden über den Sync-Code abgeglichen und täglich in der Google-Tabelle gesichert.' : 'Alle Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.'}</small></details>`;
+    ${sbSt() ? '' : '<small class="mut">Daten liegen nur auf diesem Gerät. Mach ab und zu ein Backup.</small>'}</details>
+  <button class="btn danger wipe" data-act="wipe">Alle Daten löschen</button>`;
 }
 
 function sbSection() {
@@ -932,7 +937,7 @@ function sbSection() {
       <div class="row"><button class="btn pri grow" data-act="sbfirst" data-m="merge">Zusammenführen</button><button class="btn grow" data-act="sbfirst" data-m="take">Online-Daten übernehmen</button></div>
       <small class="hint">Übernehmen ersetzt die Daten auf diesem Gerät. Zusammenführen behält beides und fragt bei Widersprüchen nach.</small>
       <button class="btn" data-act="sbfirst" data-m="cancel">Abbrechen</button>`
-    : `<small class="mut">Mit einem Sync-Code werden deine Daten online gespeichert und auf allen Geräten abgeglichen. Kein Konto nötig.</small>
+    : `<small class="mut">Gleicht deine Daten über einen Code zwischen Geräten ab. Kein Konto nötig.</small>
       <button class="btn pri" data-act="sbcreate">Neuen Code erzeugen</button>
       <div class="lbl">Oder vorhandenen Code eingeben</div>
       <input type="text" id="sbcode" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX">

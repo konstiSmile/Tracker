@@ -32,7 +32,7 @@ with sync_playwright() as p:
     pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('http://localhost:8765/'); pg.wait_for_timeout(1200); pg.add_style_tag(content='#fb{pointer-events:none}')
     pg.evaluate("DB.cfg.fold={};render()")
-    res.append(('karte uhrdaten holen', 'Daten von der Uhr holen' in pg.inner_text('#app')))
+    res.append(('karte uhrdaten holen', 'Jetzt synchronisieren' in pg.inner_text('#app')))
     # Kurzbefehl schickt Daten
     sql("select tr_health_put(:'c', :'d', :'j'::jsonb)", c=CODE, d=T.isoformat(), j=json.dumps({'sleep': sleep, 'rhr': '52', 'hrv': 47.6, 'workouts': wo, 'steps_y': 8432}))
     pg.evaluate("sbRun()"); pg.wait_for_timeout(500)
@@ -40,7 +40,7 @@ with sync_playwright() as p:
     res.append(('schlaf', s.get('bed') == '23:10' and s.get('wake') == '06:50' and s.get('deep') == 60 and s.get('rem') == 60 and s.get('light') == 330 and s.get('awake') == 10 and s.get('dur') == 460 and s.get('src') == 'uhr', s))
     res.append(('puls hrv', s.get('rhr') == 52 and s.get('hrv') == 48))
     res.append(('schritte gestern', pg.evaluate(f"day('{Y.isoformat()}').steps") == 8432))
-    res.append(('karte weg', 'Daten von der Uhr holen' not in pg.inner_text('#app')))
+    res.append(('karte weg', 'Jetzt synchronisieren' not in pg.inner_text('#app')))
     t = pg.inner_text('#app').replace('\u00a0', ' ')
     res.append(('anzeige schlaf', 'HRV 48 ms' in t and 'Ruhepuls 52' in t and 'Tief 1:00' in t))
     res.append(('keine workouts', 'Von der Uhr' not in t and pg.locator('[data-act=hwadd]').count() == 0))

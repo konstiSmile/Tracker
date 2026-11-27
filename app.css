@@ -373,3 +373,11 @@ body.noscroll{overflow:hidden}
 /* Apple Health (4.1) */
 .hlrow{display:block;margin-top:var(--s-1)}
 .hlw .hlbtn{min-height:var(--tap);padding:0 var(--s-2);flex:none}
+
+/* 4.3 Einstellungen-Gruppen, große Sync-Karte */
+.sgh{color:var(--mut);font-weight:700;margin:var(--s-3) var(--s-1) var(--s-1)}
+.sgh:first-of-type{margin-top:var(--s-1)}
+.btn.wipe{display:block;width:100%;margin:var(--s-3) 0 var(--s-2)}
+.card.hlbig{display:flex;flex-direction:column;gap:var(--s-1)}
+.card.hlbig h3{font:var(--fw-serif) var(--fs-3) var(--serif)}
+.card.hlbig .btn{min-height:56px;font-size:var(--fs-2);margin-top:var(--s-1)}
