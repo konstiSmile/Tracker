@@ -401,3 +401,5 @@ details.grp>details.sub{margin-top:var(--s-1)}
 .hab.auto{cursor:default;-webkit-user-select:none;user-select:none}
 .hab.auto.open{opacity:.6}
 .hgrid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.hab>.cnt{position:absolute;top:6px;right:8px;font-size:13px}
+.hab.hidc{opacity:.55}

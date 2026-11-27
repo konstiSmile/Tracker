@@ -234,3 +234,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 - Gewohnheiten (auch im Check-in): drei Kacheln nebeneinander, Symbol oben, Name darunter, Häkchen oben rechts. Automatisch als 2×2.
 - Kürzere Namen (Migration `cfg.v < 10`, nur wenn der Name noch dem alten Standard entspricht): Draußen, 2 L getrunken, Produktiv, Mit Menschen, Viel Handy, Junkfood, Grübeln, Handy im Bett, Morgenlicht, Handypause, Runtergefahren u. a. Automatisch: Schlaf vor 22/23/0 Uhr.
 - Tab-Leiste als Kapsel (wie die schwebende iOS-Leiste): rund, schmaler, dezenter Schatten, Beschriftung 12 px.
+
+## Version 4.13 (27.11.2026) – Sport als Kacheln
+- Sport-Karte und Check-in Schritt 6: Dreier-Kacheln wie bei den Gewohnheiten (`.hab` in `.hgrid`), Zähler „2ד oben rechts, „Neu“ als Kachel. Namen der Sportarten unverändert (Einträge hängen am Namen).

@@ -76,7 +76,7 @@ try:
         lp('.hab[data-id=h1]'); pg.click('[data-act=medit]')
         chk(T+'Bearbeiten öffnet großes Fenster',pg.locator('#sheet').is_visible() and pg.locator('#menu').is_hidden() and 'Gewohnheit bearbeiten' in pg.inner_text('#sbody'))
         pg.click('#sbody [data-act=sclose]')
-        lp('.chip[data-lp="sports|laufen"]'); pg.click('[data-act=mhide]')
+        lp('.hab[data-lp="sports|laufen"]'); pg.click('[data-act=mhide]')
         chk(T+'Sport verstecken',pg.evaluate("DB.cfg.sports.find(x=>x.id==='laufen').hid")==True and pg.locator('#menu').is_hidden())
         lp('.hab[data-id=h2]'); pg.click('[data-act=mrm]')
         chk(T+'Löschen fragt nach','Nochmal' in pg.inner_text('[data-act=mrm]') and pg.evaluate("DB.cfg.habits.some(x=>x.id==='h2')"))

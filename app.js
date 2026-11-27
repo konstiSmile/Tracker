@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.12';
+const VERSION = '4.13';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -635,7 +635,7 @@ function viewHeute() {
   const when = isToday ? 'Oft um diese Zeit' : 'Oft an diesem Wochentag';
   const cN = c => cof.filter(e => e.k === c.id).length, sN = x => sp.filter(e => e.name === x.name).length;
   const cChip = c => { const n = cN(c); return `<button class="cti ${n ? 'on on-g' : ''} ${c.hid ? 'hidc' : ''}" data-act="cadd" data-id="${c.id}" data-lp="coffee|${c.id}">${ic(itIc('coffee', c))}<span>${esc(c.name)} <small>${c.est ? '≈' : ''}${c.mg}</small></span>${n ? mark(n) : ''}</button>`; };
-  const sChip = x => { const n = sN(x); return `<button class="chip ${n ? 'on on-g' : ''} ${x.hid ? 'hidc' : ''}" data-act="sadd" data-id="${x.id}" data-lp="sports|${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${x.km ? `<small>≈${esc(x.km)} km</small>` : ''}${mark(n)}</button>`; };
+  const sChip = x => { const n = sN(x); return `<button class="hab pos ${n ? 'on on-g' : ''} ${x.hid ? 'hidc' : ''}" data-act="sadd" data-id="${x.id}" data-lp="sports|${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}${x.km ? `<small>≈${esc(x.km)} km</small>` : ''}</span>${mark(n)}</button>`; };
   const newChip = kind => `<button class="chip new" data-act="edit" data-kind="${kind}" data-id="_new">${gl('plus')}<span>Neu</span></button>`;
   const hidBlock = (k, items, chip, cls = 'chips') => items.length ? `<button class="morehid" data-act="tog" data-k="${k}">${S.open[k] ? 'weniger' : `weitere (${items.length})`}${arrow(S.open[k])}</button>${S.open[k] ? `<div class="${cls}">${items.map(x => chip(x)).join('')}</div>` : ''}` : '';
   const mlog = moodSorted(m), mact = moodAct(m), mv = mact ? mact.v : m.v, mi = mv ? Math.round(mv) : 0;
@@ -678,8 +678,8 @@ function viewHeute() {
     ${caffeineBlock(d)}
 `;
   P.sport = `
-    <div class="chips">${[...sr.top, ...sr.rest].map(x => sChip(x)).join('')}${newChip('sports')}</div>
-    ${hidBlock('shid', sHid, sChip)}
+    <div class="hgrid">${[...sr.top, ...sr.rest].map(x => sChip(x)).join('')}<button class="hab newh" data-act="edit" data-kind="sports" data-id="_new">${gl('plus')}<span>Neu</span></button></div>
+    ${hidBlock('shid', sHid, sChip, 'hgrid')}
     ${copyBtns('sport')}
     ${sp.map(x => `<div class="ent">${ic(sportIc(x))}<span class="grow">${esc(x.name)}${x.t ? ` <small>${x.t} Uhr${x.min ? ' · ' + x.min + ' min' : ''}</small>` : ''}</span><button class="x" data-act="sdel" data-id="${x.id}" aria-label="Eintrag löschen">${gl('close')}</button></div>`).join('')}
     ${hintLP('Antippen fügt hinzu. Lange drücken: bearbeiten, verstecken, löschen')}
@@ -1397,7 +1397,7 @@ function ciSheet() {
     const g = type => { const v = DB.cfg.habits.filter(h => h.type === type && (!h.hid || H[h.id])); return v.length ? `<div class="hgrid">${v.map(h => `<button class="hab ${h.type} ${H[h.id] ? 'on on-g' : ''}" data-act="hab" data-id="${h.id}" aria-pressed="${!!H[h.id]}">${ic(itIc('habits', h))}<span>${esc(h.name)}</span>${H[h.id] ? chk : ''}</button>`).join('')}</div>` : ''; };
     b = `<div class="a-habit"><h3>Was hast du heute geschafft?</h3>${g('pos')}<div class="lbl">Und was ist passiert?</div>${g('neg')}${supBox(D)}</div>`;
   } else if (i === 5) {
-    b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="chips">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="chip ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
+    b = `<div class="a-sport"><h3>Hast du dich bewegt?</h3><div class="hgrid">${DB.cfg.sports.filter(x => !x.hid).map(x => { const n = sp.filter(e => e.name === x.name).length; return `<button class="hab pos ${n ? 'on on-g' : ''}" data-act="sadd" data-id="${x.id}">${ic(itIc('sports', x))}<span>${esc(x.name)}</span>${n > 1 ? `<b class="cnt">${n}×</b>` : n ? chk : ''}</button>`; }).join('')}</div><small class="hint">Nichts dabei? Einfach weiter.</small></div>`;
   } else {
     const q = QS[(S.qi[d] ?? (parse(d).getTime() / 864e5 | 0)) % QS.length], qa = (m.qa && m.qa[0]) || {};
     b = `<div class="a-mood"><h3>${esc(q)}</h3><textarea data-f="mood.qa" data-q="${esc(q)}" placeholder="Ein Satz reicht. Oder leer lassen.">${esc(qa.a || '')}</textarea></div>`;
