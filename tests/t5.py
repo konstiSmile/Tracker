@@ -25,7 +25,7 @@ try:
     pg.goto('http://localhost:8766/'); pg.wait_for_selector('.card'); time.sleep(1.6); pg.evaluate('fbHide()')
     # Einklappen
     chk('Schlaf vollständig -> eingeklappt',pg.locator('.card.a-sleep.folded').count()==1 and '7:55' in pg.inner_text('.card.a-sleep'))
-    pg.click('.card.a-sleep .chead'); chk('Schlaf aufklappen',pg.locator('.card.a-sleep.folded').count()==0 and pg.locator('.card.a-sleep .smileys').count()==1)
+    pg.click('.card.a-sleep .chead'); chk('Schlaf aufklappen',pg.locator('.card.a-sleep.folded').count()==0 and pg.locator('.card.a-sleep [data-act=moopen]').count()==1)
     pg.click('.card.a-sport .chead'); chk('Sport einklappen bleibt gespeichert',pg.locator('.card.a-sport.folded').count()==1 and pg.evaluate("DB.cfg.fold.sport")==True)
     pg.click('.card.a-sport .chead'); chk('Sport wieder auf',pg.locator('.card.a-sport .chips').count()>=1)
     chk('fünf Karten',pg.locator('#app .card[class*=" a-"]:not(.cta)').count()==5)

@@ -392,3 +392,8 @@ details.sub[open]{padding-bottom:var(--s-2)}
 details.sub[open] summary{margin-bottom:var(--s-1)}
 details.sub>*:not(summary){margin-top:var(--s-2)}
 details.grp>details.sub{margin-top:var(--s-1)}
+/* 4.5 Morgen-Check-in */
+.card.hlbig .btn:not(.pri){min-height:var(--tap);font-size:var(--fs-1);margin-top:0}
+.mo+.mo{margin-top:var(--s-2)}
+.mo h3{font:var(--fw-serif) var(--fs-3) var(--serif)}
+.slsum{display:block;margin-top:var(--s-1)}

@@ -201,3 +201,10 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ## Version 4.4 (27.11.2026) – Einstellungen aufklappbar
 - Die vier Gruppen sind jetzt aufklappbare Karten (`details.card.grp`, Unterzeile mit Inhalt), darin die Unterpunkte als aufklappbare Felder (`details.sub`). Auf/zu bleibt beim Neuzeichnen erhalten (`data-k`, `S.dk`, `toggle`-Listener). Gruppen öffnen sich selbst, wenn ein Unterpunkt etwas zeigen muss (Sync-Nachfrage, Import-Meldung, Mitteilungs-Meldung).
+
+## Version 4.5 (27.11.2026) – Morgen-Check-in
+- Heute 4–13 Uhr, solange `day.mo` fehlt: Karte „Guten Morgen“ ganz oben. Fehlen Uhrdaten, zuerst „Jetzt synchronisieren“, darunter „Morgen-Check-in“. Danach wie bisher die Karte „Synchronisieren“, falls die Uhrdaten weiter fehlen.
+- Blatt `moSheet` (`S.mo`, Aktionen `moopen`, `modone` → `day.mo = 1`): Wie erholt (`sleep.q`), Wie schnell eingeschlafen (`sleep.fall`), Stimmungsfeld (neuer `mood.log`-Eintrag mit Energie), Träume/Notiz (`sleep.note`).
+- Schlaf-Karte: Fragen (Erholung, Einschlafen, nachts wach, Aufwachen), manuelle Uhr-Werte und Screenshot-Tipp entfernt; zeigt Zeiten, Uhrdaten, Zusammenfassung des Morgen-Check-ins und Knopf dorthin. Alte Werte (`wakes`, `morning`, `score`) bleiben in den Daten.
+- Import: „Auftrag für Claude“ (Screenshot) entfernt.
+- `mfMove` sucht Gesicht/Text im eigenen Kasten (Stimmungsfeld funktioniert auch im Blatt). Test `tests/t16.py`.

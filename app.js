@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.4';
+const VERSION = '4.5';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -659,17 +659,8 @@ function viewHeute() {
     <div class="tfield">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow sldur"><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small><div class="big">${fmtDur(dur)}</div></div></div>
     ${sl.deep || sl.rem || sl.rhr || sl.hrv || D.steps ? `<small class="mut hlrow">${[sl.deep ? 'Tief ' + fmtDur(sl.deep).replace(' h', '') : '', sl.rem ? 'REM ' + fmtDur(sl.rem).replace(' h', '') : '', sl.rhr ? 'Ruhepuls ' + sl.rhr : '', sl.hrv ? 'HRV ' + sl.hrv + ' ms' : '', D.steps ? D.steps.toLocaleString('de-DE') + ' Schritte' : ''].filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · ')}</small>` : ''}
-    <div class="lbl">Wie erholt fühlst du dich?</div>
-    <div class="smileys">${REST_N.map((n, i) => { const on = sl.q === i + 1; return `<button class="sm ${on ? 'on' : ''}" data-act="srate" data-v="${i + 1}" aria-label="${n}" aria-pressed="${on}">${face(i + 1)}${on ? `<i class="badge">${gl('check')}</i>` : ''}</button>`; }).join('')}</div>
-    <button class="more" data-act="tog" data-k="sleep" aria-expanded="${!!sleepOpen}"><span>${sleepOpen ? 'Weniger' : 'Mehr dazu: Fragen, Uhr-Daten'}${!sleepOpen && (sl.fall || sl.wakes || sl.morning || sl.deep || sl.note) ? dot : ''}</span>${arrow(sleepOpen)}</button>
-    ${sleepOpen ? `
-      <div class="lbl">Wie schnell eingeschlafen?</div>${chips([['schnell', 'schnell'], ['normal', 'normal'], ['lange', 'lange gebraucht']], sl.fall, 'sfall')}
-      <div class="lbl">Nachts wach geworden?</div>${chips([['nie', 'nie'], ['1x', 'einmal'], ['mehrfach', 'mehrfach']], sl.wakes, 'swakes')}
-      <div class="lbl">Aufwachen</div>${chips([['frisch', 'frisch'], ['ok', 'okay'], ['zerschlagen', 'zerschlagen']], sl.morning, 'smorning')}
-      <div class="lbl">Uhr-Daten (optional, in Minuten bzw. Schläge/min)</div>
-      <div class="mini">${[['score', 'Score'], ['deep', 'Tief'], ['rem', 'REM'], ['light', 'Leicht'], ['awake', 'Wach'], ['rhr', 'Ruhepuls'], ['hrv', 'HRV (ms)']].map(([k, l]) => `<label>${l}<input type="number" inputmode="numeric" data-f="sleep.${k}" value="${sl[k] ?? ''}"></label>`).join('')}</div>
-      <div class="lbl">Notiz zum Schlaf</div><textarea data-f="sleep.note" placeholder="Träume, Störungen …">${esc(sl.note || '')}</textarea>
-      <small class="hint">Tipp: Uhr-Screenshot im Claude-Chat auswerten lassen und das Ergebnis unter Einstellungen → Import einfügen.</small>` : ''}
+    ${sl.q || sl.fall || sl.note ? `<small class="mut slsum">${[sl.q ? REST_N[sl.q - 1] : '', sl.fall ? FALL_N[sl.fall] : ''].filter(Boolean).join(' · ')}${sl.note ? `<br>${esc(sl.note)}` : ''}</small>` : ''}
+    <button class="more" data-act="moopen"><span>${D.mo ? 'Morgen-Check-in ändern' : 'Morgen-Check-in'}</span>${D.mo ? gl('check') : gl('right')}</button>
 `;
   P.coffee = `
     <div class="bar ${mg > lim ? 'warn' : ''}"><i style="width:${Math.min(100, mg / lim * 100)}%"></i></div>
@@ -706,8 +697,8 @@ function viewHeute() {
   const hr = new Date().getHours();
   const order = !isToday ? ['mood', 'sleep', 'coffee', 'sport', 'habit'] : hr < 11 ? ['sleep', 'mood', 'coffee', 'sport', 'habit'] : hr < 17 ? ['mood', 'coffee', 'sport', 'habit', 'sleep'] : ['mood', 'habit', 'sport', 'coffee', 'sleep'];
   const wdue = isToday ? wrDue() : null;
-  const nAsk = isToday ? sbAskDays().length : 0, hlDue = isToday && hr >= 5 && sbSt() && Object.keys(hlAll()).length && !hlToday();
-  const top = (hlDue ? `<section class="card hlbig a-sleep"><h3>Synchronisieren</h3><small class="mut">Schlaf und Werte von der Uhr fehlen für heute.</small><button class="btn pri" data-act="hlrun">Jetzt synchronisieren</button></section>` : '') + (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
+  const nAsk = isToday ? sbAskDays().length : 0, hlDue = isToday && hr >= 5 && sbSt() && Object.keys(hlAll()).length && !hlToday(), moDue = isToday && hr >= 4 && hr < 13 && !D.mo;
+  const top = (moDue ? `<section class="card hlbig"><h3>Guten Morgen</h3><small class="mut">${hlDue ? 'Erst die Uhrdaten holen, dann kurz den Morgen eintragen.' : 'Wie war die Nacht? Vier kurze Fragen.'}</small>${hlDue ? '<button class="btn pri" data-act="hlrun">Jetzt synchronisieren</button><button class="btn" data-act="moopen">Morgen-Check-in</button>' : '<button class="btn pri" data-act="moopen">Morgen-Check-in starten</button>'}</section>` : hlDue ? `<section class="card hlbig"><h3>Synchronisieren</h3><small class="mut">Schlaf und Werte von der Uhr fehlen für heute.</small><button class="btn pri" data-act="hlrun">Jetzt synchronisieren</button></section>` : '') + (nAsk ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="sbask"><div class="tile on-g">${tile('mood')}</div><h3>Unterschiede klären<small>${nAsk === 1 ? 'Ein Tag wurde' : nAsk + ' Tage wurden'} auf zwei Geräten verschieden eingetragen</small></h3>${gl('right', 'fchev')}</div></section>` : '') + (wdue ? `<section class="card cta"><div class="chead a-sleep" role="button" tabindex="0" data-act="wropen" data-w="${wdue}"><div class="tile on-g">${tile('sleep')}</div><h3>Wochenrückblick<small>KW ${isoWeek(wdue)} · 3 kurze Schritte</small></h3>${gl('right', 'fchev')}</div></section>` : '')
     + (isToday && hr >= 17 && !D.ci ? `<section class="card cta"><div class="chead a-mood" role="button" tabindex="0" data-act="ciopen"><div class="tile on-g">${tile('mood')}</div><h3>Abend-Check-in<small>7 kurze Schritte, etwa eine Minute</small></h3>${gl('right', 'fchev')}</div></section>` : '');
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
@@ -915,13 +906,11 @@ function viewSettings() {
     <button class="btn" data-act="syncnow">Jetzt in Tabelle sichern</button>
     <small class="mut">${syncCfg().last ? 'Zuletzt gesendet: ' + new Date(syncCfg().last).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + (syncCfg().pending ? ' · Änderungen warten' : '') : 'Noch nicht gesendet.'} Die App sichert einmal am Tag automatisch, beim ersten Öffnen ab 4 Uhr.</small></details>
   <details class="sub" data-k="s-Import" ${S.impMsg ? 'open' : ''}><summary>Import</summary>
-    <small class="mut">Backup oder JSON von Claude einfügen.</small>
+    <small class="mut">Backup einfügen.</small>
     <textarea id="imp" placeholder='{"tracker":1,"days":{…}}'></textarea>
     <div class="row"><button class="btn pri" data-act="imp" data-m="merge">Zusammenführen</button><button class="btn danger" data-act="imp" data-m="replace">Alles ersetzen</button></div>
     ${S.impMsg ? `<small>${esc(S.impMsg)}</small>` : ''}
-    <div class="lbl">Für Claude</div>
-    <button class="btn" data-act="copyprompt">Auftrag für Claude kopieren</button>
-    <small class="mut">Mit Screenshot in den Chat einfügen, Antwort hier importieren.</small></details>
+</details>
   </details>
   <details class="card grp" data-k="g-app"><summary><span>App<small>Darstellung, Ideen, Version</small></span></summary>
   <details class="sub" data-k="s-Darstellung"><summary>Darstellung</summary>${chips([['light', 'Hell'], ['dark', 'Dunkel'], ['system', 'System']], c.theme, 'theme')}</details>
@@ -975,6 +964,8 @@ function setField(path, val, el) {
   cleanDay(d); save();
   if (s === 'sleep' && (k === 'bed' || k === 'wake')) render();
 }
+const FALL_N = { schnell: 'schnell eingeschlafen', normal: 'normal eingeschlafen', lange: 'lange zum Einschlafen gebraucht' };
+const restFaces = sl => `<div class="smileys">${REST_N.map((n, i) => { const on = sl.q === i + 1; return `<button class="sm ${on ? 'on' : ''}" data-act="srate" data-v="${i + 1}" aria-label="${n}" aria-pressed="${on}">${face(i + 1)}${on ? `<i class="badge">${gl('check')}</i>` : ''}</button>`; }).join('')}</div>`;
 function cleanDay(d) { const D = DB.days[d]; if (!D) return; ['mood', 'sleep', 'did', 'ev', 'sup'].forEach(k => { if (D[k] && !Object.keys(D[k]).length) delete D[k]; }); ['coffee', 'sport'].forEach(k => { if (D[k] && !D[k].length) delete D[k]; }); if (D.habits && !Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete DB.days[d]; }
 
 const A = {
@@ -992,6 +983,8 @@ const A = {
   fold(el) { const k = el.dataset.k, d = S.date; if (k === 'sleep') S.fold[d] = !(S.fold[d] ?? S.slf[d]); else { DB.cfg.fold[k] = !DB.cfg.fold[k]; save(); } },
   fbx() { fbHide(); return 'noRender'; },
   ciopen() { S.ci = { step: 0 }; openSheet(ciSheet()); return 'noRender'; },
+  moopen() { S.mo = 1; openSheet(moSheet()); return 'noRender'; },
+  modone() { day(S.date, true).mo = 1; save(); closeSheet(); },
   ciprev() { S.ci.step = Math.max(0, S.ci.step - 1); $('#sbody').innerHTML = ciSheet(); return 'noRender'; },
   cinext() {
     S.ci.step++;
@@ -1193,7 +1186,7 @@ function copy(txt, msg) {
   if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast(msg), fb); else fb();
 }
 function openSheet(html) { $('#sbody').innerHTML = html; $('#sheet').hidden = false; document.body.classList.add('noscroll'); }
-function closeSheet() { $('#sheet').hidden = true; S.wxs = 0; S.sp = null; S.ed = null; S.ci = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
+function closeSheet() { $('#sheet').hidden = true; S.wxs = 0; S.sp = null; S.ed = null; S.ci = null; S.mo = null; S.wr = null; TP.on = false; document.body.classList.remove('noscroll'); }
 
 /* Kleines Menü bei langem Drücken: Bearbeiten, Verstecken, Löschen. Tippen daneben schließt es. */
 function openMenu(kind, id, el) {
@@ -1341,6 +1334,17 @@ function evBox(D) {
 }
 const didHas = (d, id) => ((day(d).did || {}).t || []).includes(id);
 const didRun = (d, id) => { let n = 0; while (didHas(addDays(d, -n), id) && n < 400) n++; return n; };
+function moSheet() {
+  const D = day(S.date), sl = D.sleep || {}, m = D.mood || {}, a = moodAct(m), l = moodSorted(m), i = a ? Math.round(a.v) : 3;
+  const uhr = sl.bed && sl.wake ? `${sl.bed}–${sl.wake} · ${fmtDur(sleepDur(sl))}` : '';
+  return `<div class="a-sleep mo"><h3>Guten Morgen</h3>${uhr ? `<small class="mut">Von der Uhr: ${uhr}</small>` : ''}
+    <div class="lbl">Wie erholt fühlst du dich?</div>${restFaces(sl)}
+    <div class="lbl">Wie schnell bist du eingeschlafen?</div>${chips([['schnell', 'schnell'], ['normal', 'normal'], ['lange', 'lange gebraucht']], sl.fall, 'sfall')}</div>
+    <div class="a-mood mo"><div class="lbl">Stimmung und Energie gerade</div>
+    <div class="moodbox ${a ? '' : 'unset'}"><div class="moodtop"><span class="moodemo" id="mood-e">${face(i)}</span><span class="grow mlab" id="mood-l">${a ? moodTxt(a) : 'Finger aufs Feld legen'}</span></div>${moodField(l, a)}</div></div>
+    <div class="a-sleep mo"><div class="lbl">Träume oder Notiz zur Nacht</div><textarea data-f="sleep.note" placeholder="Optional">${esc(sl.note || '')}</textarea></div>
+    <div class="row ci-nav"><button class="btn pri grow" data-act="modone">Fertig</button></div>`;
+}
 function ciSheet() {
   const d = S.date, D = day(d), i = S.ci.step, isT = d === todayStr(), m = D.mood || {}, H = D.habits || {}, sp = D.sport || [], chk = gl('check', 'chk');
   if (i >= CI_N) {
@@ -1549,9 +1553,9 @@ function mfPos(f, ev) { const r = f.getBoundingClientRect(), x = Math.min(1, Mat
 function mfMove(ev) {
   const p = mfPos(MF.f, ev), d = $('.mpt.live', MF.f), i = Math.round(p.v);
   d.hidden = false; d.style.left = p.x * 100 + '%'; d.style.top = p.y * 100 + '%'; d.style.setProperty('--c', `var(--f${i})`); MF.f.classList.add('drag');
-  const bx = MF.f.closest('.moodbox'); bx.classList.remove('unset', 'idle'); const fe = $('#mood-e');
+  const bx = MF.f.closest('.moodbox'); bx.classList.remove('unset', 'idle'); const fe = $('#mood-e', bx);
   if (fe.dataset.n !== String(i)) { fe.innerHTML = face(i); fe.dataset.n = i; }
-  $('#mood-l').textContent = moodTxt({ v: Math.round(p.v * 10) / 10, e: p.e });
+  $('#mood-l', bx).textContent = moodTxt({ v: Math.round(p.v * 10) / 10, e: p.e });
 }
 document.addEventListener('pointerdown', ev => { const f = ev.target.closest && ev.target.closest('#mfield'); if (!f) return; ev.preventDefault(); try { f.setPointerCapture(ev.pointerId); } catch (x) { } MF.f = f; MF.id = ev.pointerId; mfMove(ev); });
 document.addEventListener('pointermove', ev => { if (MF.f && ev.pointerId === MF.id) mfMove(ev); });
@@ -1565,7 +1569,7 @@ function moodSet(v, en) {
   if (!e) { e = { id: uid(), t: S.date === todayStr() ? nowT() : '', v }; o.log.push(e); if (o.log.length > 2) markSeen('mood'); }
   e.v = v; if (en != null) e.e = Math.round(en * 10) / 10; S.ma = { id: e.id, d: S.date, at: Date.now() };
   moodSync(o); save(); render();
-  if (S.ci) $('#sbody').innerHTML = ciSheet(); else fbCheck('mood');
+  if (S.ci || S.mo) $('#sbody').innerHTML = S.ci ? ciSheet() : moSheet(); else fbCheck('mood');
 }
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role=button][data-act]')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.k) S.dk[d.dataset.k] = d.open; }, true);
@@ -1583,7 +1587,7 @@ document.addEventListener('click', e => {
     render();
     document.querySelectorAll('details summary').forEach(s => { if (open.includes(s.textContent.trim()) || (keepOpen && s.textContent.trim().toLowerCase().startsWith({ coffee: 'koffein', sports: 'sportarten', habits: 'gewohnheiten' }[keepOpen] || '#'))) s.parentElement.open = true; });
     keepOpen = null;
-    if (S.ci) $('#sbody').innerHTML = ciSheet();
+    if (S.ci || S.mo) $('#sbody').innerHTML = S.ci ? ciSheet() : moSheet();
     else { const fa = { hab: 'habit', sadd: 'sport', cadd: 'coffee', csize: 'coffee', srate: 'sleep', copyday: el.dataset.kind }[act]; if (fa) fbCheck(fa); }
     if (['hab', 'sadd', 'cadd', 'csize', 'srate', 'tag', 'sfall', 'swakes', 'smorning'].includes(act) && key) { const n = document.querySelector(`#app .on[data-id="${CSS.escape(key)}"], #app .on[data-v="${CSS.escape(key)}"]`); if (n) n.classList.add('pop'); }
     if (act === 'hab' && !goalBefore && habGoal()) { const t = $('.a-habit .tile'); if (t) t.classList.add('goal'); }
