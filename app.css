@@ -215,7 +215,7 @@ small,.mut{color:var(--mut)}
 .mini input{width:100%}
 
 /* Gewohnheiten */
-.hgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-1)}
+.hgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-1)}
 .hab{display:flex;align-items:center;gap:var(--s-1);min-height:72px;padding:var(--s-1) 12px;border-radius:var(--r-m);background:var(--inset);text-align:left;line-height:1.25;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .hab>span{flex:1;min-width:0;overflow-wrap:break-word;hyphens:manual}
 .hab .ic{width:28px;height:28px}
@@ -397,3 +397,5 @@ details.grp>details.sub{margin-top:var(--s-1)}
 .mo+.mo{margin-top:var(--s-2)}
 .mo h3{font:var(--fw-serif) var(--fs-3) var(--serif)}
 .slsum{display:block;margin-top:var(--s-1)}
+.hab.auto{cursor:default;-webkit-user-select:none;user-select:none}
+.hab.auto.open{opacity:.6}

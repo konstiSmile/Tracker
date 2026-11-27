@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.6';
+const VERSION = '4.7';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -685,6 +685,7 @@ function viewHeute() {
 `;
   P.habit = `
     <div class="lbl" style="margin-top:0">Positiv</div>${hgrp('pos')}
+    <div class="lbl">Automatisch</div><div class="hgrid">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>
     <div class="lbl">Negativ (antippen, wenn es passiert ist)</div>${hgrp('neg')}
     ${hintLP('Lange drücken: bearbeiten, verstecken, löschen')}
 `;
@@ -707,6 +708,21 @@ function viewHeute() {
   const foot = `<section class="card"><h3>Tagesnotiz</h3><textarea data-f="day.note" placeholder="Wie war der Tag insgesamt?">${esc(D.note || '')}</textarea></section>
   <button class="more cilink" data-act="ciopen"><span>${D.ci ? 'Check-in erledigt · nochmal durchgehen' : 'Check-in für diesen Tag starten'}</span>${D.ci ? gl('check') : gl('right')}</button>`;
   return head + top + order.map(card).join('') + foot;
+}
+/* Automatische Gewohnheiten (4.7): werden aus den Einträgen berechnet, nicht gespeichert. f(d) = true/false/null (null = noch offen oder keine Daten). */
+const AUTO_H = [
+  { id: 'a_kof', name: 'Koffein\u2011Stopp', i: 'tasse', open: 'ab 14 Uhr', f: d => {
+    const D = day(d); if (d !== todayStr() && !Object.keys(D).length) return null;
+    if ((D.coffee || []).some(x => x.t && x.t >= '14:00')) return false;
+    return d === todayStr() && new Date().getHours() < 14 ? null : true; } },
+  ...[['a_22', '22:00', 'Vor 22 Uhr geschlafen'], ['a_23', '23:00', 'Vor 23 Uhr geschlafen'], ['a_mn', '24:00', 'Vor Mitternacht geschlafen']].map(([id, lim, name]) => ({ id, name, i: 'spaet', open: 'noch keine Schlafzeit',
+    f: d => { const b = (day(d).sleep || {}).bed; return b ? b >= '18:00' && b <= lim : null; } }))   // Einschlafzeit bis einschließlich Grenze; früher = alle Stufen
+];
+function autoStreak(a, d) { let x = d, n = 0; if (a.f(x) === null) x = addDays(x, -1); while (a.f(x) === true) { n++; x = addDays(x, -1); } return n; }
+function autoHab(a, d) {
+  const v = a.f(d), n = autoStreak(a, d);
+  const sub = v === null ? a.open + (n ? ` · ${n} ${n === 1 ? 'Tag' : 'Tage'} in Folge` : '') : v ? (n ? `${n} ${n === 1 ? 'Tag' : 'Tage'} in Folge` : '') : 'diesmal nicht';
+  return `<div class="hab pos auto ${v ? 'on on-g' : v === null ? 'open' : ''}">${ic(a.i)}<span>${esc(a.name)}<small>${sub}</small></span>${v ? gl('check', 'chk') : ''}</div>`;
 }
 function streakTxt(h, d) {
   const n = streak(h, d);
