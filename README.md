@@ -229,3 +229,8 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ## Version 4.11 (27.11.2026) – schwebende Leiste
 - Tab-Leiste schwebt: Abstand zu Rand und Unterkante, rundum gerundet, leicht durchscheinend mit Unschärfe (`backdrop-filter`), im dunklen Thema etwas heller als die Karten.
+
+## Version 4.12 (27.11.2026) – kleinere Gewohnheiten-Kacheln, Leiste wie iOS
+- Gewohnheiten (auch im Check-in): drei Kacheln nebeneinander, Symbol oben, Name darunter, Häkchen oben rechts. Automatisch als 2×2.
+- Kürzere Namen (Migration `cfg.v < 10`, nur wenn der Name noch dem alten Standard entspricht): Draußen, 2 L getrunken, Produktiv, Mit Menschen, Viel Handy, Junkfood, Grübeln, Handy im Bett, Morgenlicht, Handypause, Runtergefahren u. a. Automatisch: Schlaf vor 22/23/0 Uhr.
+- Tab-Leiste als Kapsel (wie die schwebende iOS-Leiste): rund, schmaler, dezenter Schatten, Beschriftung 12 px.

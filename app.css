@@ -42,10 +42,10 @@ small,.mut{color:var(--mut)}
 .hint{display:block;color:var(--mut);margin-top:var(--s-2)}
 
 /* Tab-Leiste: sitzt am unteren Rand, füllt die sichere Zone mit */
-#tabs{position:fixed;left:var(--s-2);right:var(--s-2);bottom:max(12px,calc(env(safe-area-inset-bottom) - 12px));max-width:528px;margin:0 auto;display:flex;justify-content:center;gap:var(--s-1);background:color-mix(in srgb,var(--card) 90%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);border-radius:var(--r-l);box-shadow:0 2px 6px rgba(122,74,52,.06),0 12px 32px rgba(122,74,52,.16);padding:6px;z-index:5}
-[data-theme=dark] #tabs{background:color-mix(in srgb,var(--inset) 88%,transparent);box-shadow:0 12px 32px rgba(0,0,0,.55)}
-#tabs button{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mut);padding:var(--s-1) 0 6px;border-radius:22px;line-height:1.25}
-#tabs .ic{width:28px;height:28px;--t2:color-mix(in srgb,var(--mut) 34%,var(--card));--t3:color-mix(in srgb,var(--mut) 58%,var(--card));--t4:color-mix(in srgb,var(--mut) 88%,var(--card))}
+#tabs{position:fixed;left:var(--s-3);right:var(--s-3);bottom:max(10px,calc(env(safe-area-inset-bottom) - 14px));max-width:400px;margin:0 auto;display:flex;justify-content:center;gap:2px;background:color-mix(in srgb,var(--card) 78%,transparent);-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);border-radius:999px;box-shadow:0 0 0 .5px rgba(0,0,0,.06),0 8px 24px rgba(122,74,52,.12);padding:4px;z-index:5}
+[data-theme=dark] #tabs{background:color-mix(in srgb,var(--inset) 78%,transparent);box-shadow:0 0 0 .5px rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.45)}
+#tabs button{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--mut);padding:6px 0 5px;border-radius:999px;font-size:12px;line-height:1.25}
+#tabs .ic{width:24px;height:24px;--t2:color-mix(in srgb,var(--mut) 34%,var(--card));--t3:color-mix(in srgb,var(--mut) 58%,var(--card));--t4:color-mix(in srgb,var(--mut) 88%,var(--card))}
 #tabs button.on{color:var(--brand);font-weight:700;background:color-mix(in srgb,var(--brand) 10%,transparent)}
 #tabs button.on .ic{--t2:#E8A9A4;--t3:#C4737A;--t4:#7E3443}
 [data-theme=dark] #tabs button.on .ic{--t2:#C4737A;--t3:#E8A9A4;--t4:#F6D9D2}
@@ -215,19 +215,20 @@ small,.mut{color:var(--mut)}
 .mini input{width:100%}
 
 /* Gewohnheiten */
-.hgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-1)}
-.hab{display:flex;align-items:center;gap:var(--s-1);min-height:72px;padding:var(--s-1) 12px;border-radius:var(--r-m);background:var(--inset);text-align:left;line-height:1.25;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-.hab>span{flex:1;min-width:0;overflow-wrap:break-word;hyphens:manual}
+.hgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s-1)}
+.hab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:88px;padding:12px 6px 10px;border-radius:var(--r-m);background:var(--inset);text-align:center;font-size:14px;line-height:1.2;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.hab>span{min-width:0;max-width:100%;overflow-wrap:break-word;hyphens:auto;-webkit-hyphens:auto}
 .hab .ic{width:28px;height:28px}
-.hab small{display:block;font-weight:400}
+.hab small{display:block;font-weight:400;font-size:12px;margin-top:2px}
 .hab .gl{width:20px;height:20px;flex:none}
+.hab>.chk{position:absolute;top:6px;right:6px;width:16px;height:16px}
 .hab.on{font-weight:700;box-shadow:var(--sh-on)}
 .hab.pos.on{background:var(--gs);color:var(--on)}
 .hab.neg.on{background:var(--t4);--on:var(--paper);color:var(--paper)}
 [data-theme=dark] .hab.neg.on{background:#2F5F63}
 .hab.on small{color:inherit;opacity:.85}
 .hab.newh{color:var(--mut);background:none;box-shadow:inset 0 0 0 2px var(--inset)}
-.hab.newh .gl{width:24px;height:24px;margin:0 4px}
+.hab.newh .gl{width:24px;height:24px;margin:0}
 
 /* Diagramme */
 svg text{fill:var(--mut);font-size:9px;font-family:inherit}
@@ -399,3 +400,4 @@ details.grp>details.sub{margin-top:var(--s-1)}
 .slsum{display:block;margin-top:var(--s-1)}
 .hab.auto{cursor:default;-webkit-user-select:none;user-select:none}
 .hab.auto.open{opacity:.6}
+.hgrid.two{grid-template-columns:repeat(2,minmax(0,1fr))}

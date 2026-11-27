@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.11';
+const VERSION = '4.12';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -31,7 +31,7 @@ const MCOL = i => `var(--m${i})`;
 const REST_N = ['gar nicht erholt', 'wenig erholt', 'mittel erholt', 'gut erholt', 'sehr gut erholt'];
 
 const DEF_CFG = {
-  theme: 'light', limit: 400, halfLife: 6, v: 9, seen: {}, fold: {}, wxLoc: 'gps',
+  theme: 'light', limit: 400, halfLife: 6, v: 10, seen: {}, fold: {}, wxLoc: 'gps',
   coffee: [
     { id: 'cb_espresso', name: 'CoffeeB Espresso', mg: 65, e: '☕', est: true },
     { id: 'cb_lungo', name: 'CoffeeB Lungo', mg: 65, e: '☕', est: true },
@@ -70,27 +70,27 @@ const DEF_CFG = {
     { id: 'prokr', name: 'Prokrastiniert', i: 'sanduhr' },
   ],
   habits: [
-    { id: 'h1', name: 'Draußen an der Luft', type: 'pos', e: '🌳' },
-    { id: 'h2', name: 'Genug getrunken', type: 'pos', e: '💧' },
-    { id: 'h3', name: 'Gelernt / produktiv', type: 'pos', e: '📚' },
-    { id: 'h4', name: 'Zeit mit Menschen', type: 'pos', e: '🫶' },
-    { id: 'h5', name: 'Zu viel Handy', type: 'neg', e: '📱' },
-    { id: 'h7', name: 'Süßes / Junkfood', type: 'neg', e: '🍫' },
-    { id: 'h8', name: 'Grübeln / Stress', type: 'neg', e: '🌀' },
-    { id: 'h9', name: 'Meditiert / Ruhepause', type: 'pos', e: '🧘', hid: true },
+    { id: 'h1', name: 'Draußen', type: 'pos', e: '🌳' },
+    { id: 'h2', name: '2 L getrunken', type: 'pos', e: '💧' },
+    { id: 'h3', name: 'Produktiv', type: 'pos', e: '📚' },
+    { id: 'h4', name: 'Mit Menschen', type: 'pos', e: '🫶' },
+    { id: 'h5', name: 'Viel Handy', type: 'neg', e: '📱' },
+    { id: 'h7', name: 'Junkfood', type: 'neg', e: '🍫' },
+    { id: 'h8', name: 'Grübeln', type: 'neg', e: '🌀' },
+    { id: 'h9', name: 'Meditiert', type: 'pos', e: '🧘', hid: true },
     { id: 'h10', name: 'Gesund gegessen', type: 'pos', e: '🥗', hid: true },
     { id: 'h11', name: 'Gelesen', type: 'pos', e: '📖', hid: true },
-    { id: 'h12', name: 'Früh aufgestanden', type: 'pos', e: '🌅', hid: true },
+    { id: 'h12', name: 'Früh auf', type: 'pos', e: '🌅', hid: true },
     { id: 'h13', name: 'Aufgeräumt', type: 'pos', e: '🧹', hid: true },
-    { id: 'h14', name: 'Kreativ gewesen', type: 'pos', e: '🎨', hid: true },
+    { id: 'h14', name: 'Kreativ', type: 'pos', e: '🎨', hid: true },
     { id: 'h15', name: 'Spät gegessen', type: 'neg', e: '🌙', hid: true },
     { id: 'h17', name: 'Aufgeschoben', type: 'neg', e: '⏳', hid: true },
-    { id: 'h18', name: 'Zu lange gesessen', type: 'neg', e: '🪑', hid: true },
-    { id: 'h19', name: 'Mahlzeit ausgelassen', type: 'neg', e: '🍽️', hid: true },
-    { id: 'h20', name: 'Bildschirm im Bett', type: 'neg', e: '🛌', hid: true },
-    { id: 'h21', name: 'Morgens Tageslicht', type: 'pos', e: '🌅', i: 'sonnenaufgang' },
-    { id: 'h22', name: 'Pause ohne Handy', type: 'pos', e: '🧘', i: 'lotus' },
-    { id: 'h23', name: 'Abends runtergefahren', type: 'pos', e: '🌙', i: 'spaet' }
+    { id: 'h18', name: 'Viel gesessen', type: 'neg', e: '🪑', hid: true },
+    { id: 'h19', name: 'Mahlzeit verpasst', type: 'neg', e: '🍽️', hid: true },
+    { id: 'h20', name: 'Handy im Bett', type: 'neg', e: '🛌', hid: true },
+    { id: 'h21', name: 'Morgenlicht', type: 'pos', e: '🌅', i: 'sonnenaufgang' },
+    { id: 'h22', name: 'Handypause', type: 'pos', e: '🧘', i: 'lotus' },
+    { id: 'h23', name: 'Runtergefahren', type: 'pos', e: '🌙', i: 'spaet' }
   ]
 };
 
@@ -147,7 +147,8 @@ function norm(r) {
     Object.keys(r.days).forEach(d => { const D = r.days[d]; if (D.habits) { weg.forEach(k => delete D.habits[k]); if (!Object.keys(D.habits).length) delete D.habits; if (!Object.keys(D).length) delete r.days[d]; } });
   }
   if (sv < 9) DEF_CFG.habits.filter(d => ['h21', 'h22', 'h23'].includes(d.id)).forEach(d => { if (!r.cfg.habits.some(x => x.id === d.id)) r.cfg.habits.push(JSON.parse(JSON.stringify(d))); });   // Version 4.6: drei neue positive Gewohnheiten
-  r.cfg.v = 9;
+  if (sv < 10) { const kurz = {"Draußen an der Luft": "Draußen", "Genug getrunken": "2 L getrunken", "Genug getrunken (2L+)": "2 L getrunken", "Gelernt / produktiv": "Produktiv", "Gelernt / gearbeitet": "Produktiv", "Zeit mit Menschen": "Mit Menschen", "Zu viel Handy": "Viel Handy", "Süßes / Junkfood": "Junkfood", "Grübeln / Stress": "Grübeln", "Meditiert / Ruhepause": "Meditiert", "Früh aufgestanden": "Früh auf", "Kreativ gewesen": "Kreativ", "Zu lange gesessen": "Viel gesessen", "Mahlzeit ausgelassen": "Mahlzeit verpasst", "Bildschirm im Bett": "Handy im Bett", "Morgens Tageslicht": "Morgenlicht", "Pause ohne Handy": "Handypause", "Abends runtergefahren": "Runtergefahren"}; r.cfg.habits.forEach(h => { if (kurz[h.name]) h.name = kurz[h.name]; }); }   // Version 4.12: kürzere Namen für die Dreier-Kacheln (eigene Namen bleiben)
+  r.cfg.v = 10;
   return r;
 }
 let saveTimer = 0;
@@ -687,7 +688,7 @@ function viewHeute() {
     <div class="lbl" style="margin-top:0">Positiv</div>${hgrp('pos')}
     <div class="lbl">Negativ (antippen, wenn es passiert ist)</div>${hgrp('neg')}
     <button class="morehid autoh" data-act="tog" data-k="hauto" aria-expanded="${!!S.open.hauto}">Automatisch · ${AUTO_H.filter(a => a.f(d)).length} von ${AUTO_H.length}${arrow(S.open.hauto)}</button>
-    ${S.open.hauto ? `<div class="hgrid">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>` : ''}
+    ${S.open.hauto ? `<div class="hgrid two">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>` : ''}
     ${hintLP('Lange drücken: bearbeiten, verstecken, löschen')}
 `;
   const M = {
@@ -716,7 +717,7 @@ const AUTO_H = [
     const D = day(d); if (d !== todayStr() && !Object.keys(D).length) return null;
     if ((D.coffee || []).some(x => x.t && x.t >= '14:00')) return false;
     return d === todayStr() && new Date().getHours() < 14 ? null : true; } },
-  ...[['a_22', '22:00', 'Vor 22 Uhr geschlafen'], ['a_23', '23:00', 'Vor 23 Uhr geschlafen'], ['a_mn', '24:00', 'Vor Mitternacht geschlafen']].map(([id, lim, name]) => ({ id, name, i: 'spaet', open: 'noch keine Schlafzeit',
+  ...[['a_22', '22:00', 'Schlaf vor 22\u00a0Uhr'], ['a_23', '23:00', 'Schlaf vor 23\u00a0Uhr'], ['a_mn', '24:00', 'Schlaf vor 0\u00a0Uhr']].map(([id, lim, name]) => ({ id, name, i: 'spaet', open: 'offen',
     f: d => { const b = (day(d).sleep || {}).bed; return b ? b >= '18:00' && b <= lim : null; } }))   // Einschlafzeit bis einschließlich Grenze; früher = alle Stufen
 ];
 function autoStreak(a, d) { let x = d, n = 0; if (a.f(x) === null) x = addDays(x, -1); while (a.f(x) === true) { n++; x = addDays(x, -1); } return n; }

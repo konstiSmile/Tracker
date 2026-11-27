@@ -11,7 +11,7 @@ with sync_playwright() as p:
     pg = ctx.new_page(); errs=[]; pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('http://localhost:8765/'); pg.wait_for_timeout(700); pg.evaluate("fbHide()")
     ids = pg.evaluate("DB.cfg.habits.map(h=>h.id)")
-    res.append(('alkohol/rauchen weg', 'h6' not in ids and 'h16' not in ids and pg.evaluate("DB.cfg.v")==8))
+    res.append(('alkohol/rauchen weg', 'h6' not in ids and 'h16' not in ids and pg.evaluate("DB.cfg.v")>=8))
     res.append(('alte tage bereinigt', pg.evaluate("DB.days['2026-11-01']")==None and pg.evaluate("DB.days['2026-11-02'].habits")=={'h1':1}))
     pg.evaluate("A.ciopen()"); pg.click('[data-act=cinext]'); pg.click('[data-act=cinext]'); pg.wait_for_timeout(150)
     res.append(('keine stunden ohne uni', pg.locator('#sbody [data-act=dhrs]').count()==0))
