@@ -226,3 +226,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ## Version 4.10 (27.11.2026)
 - `translateZ(0)` an `#tabs` wieder entfernt (veränderte die Leiste auf dem iPhone). Gegen das Verrutschen bleibt `vpFix()`.
+
+## Version 4.11 (27.11.2026) – schwebende Leiste
+- Tab-Leiste schwebt: Abstand zu Rand und Unterkante, rundum gerundet, leicht durchscheinend mit Unschärfe (`backdrop-filter`), im dunklen Thema etwas heller als die Karten.
