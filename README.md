@@ -237,3 +237,6 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 
 ## Version 4.13 (27.11.2026) – Sport als Kacheln
 - Sport-Karte und Check-in Schritt 6: Dreier-Kacheln wie bei den Gewohnheiten (`.hab` in `.hgrid`), Zähler „2ד oben rechts, „Neu“ als Kachel. Namen der Sportarten unverändert (Einträge hängen am Namen).
+
+## Version 4.14 (27.11.2026)
+- Unter der schwebenden Leiste verschwimmt der Inhalt und blendet weich aus (`html::after`, Unschärfe + Verlauf). Hinweis Schlaf-Rhythmus ohne Import-Verweis.

@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.13';
+const VERSION = '4.14';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -785,7 +785,7 @@ function vUeb() {
   return rng + `
   <section class="card"><h3>Stimmung <span style="text-transform:none">Ø ${f1(avg(nz(mood)))}</span></h3>${lineChart(dates, mood)}</section>
   <section class="card"><h3>Schlaf (Stunden) <span style="text-transform:none">Ø ${f1(avg(nz(sl)))} h</span></h3>${barChart(dates, sl, { max: 10, band: [7, 9], fmt: v => Math.round(v) })}<small>Grüner Bereich: 7–9 h</small></section>
-  <section class="card"><h3>Schlaf-Rhythmus</h3>${ss ? rhythmBody(ss, dates) : '<small>Trag Bett- und Aufwachzeit ein (oder importiere Uhr-Daten). Ab 3 Nächten siehst du hier deinen Rhythmus.</small>'}</section>
+  <section class="card"><h3>Schlaf-Rhythmus</h3>${ss ? rhythmBody(ss, dates) : '<small>Ab 3 Nächten mit Schlafzeiten siehst du hier deinen Rhythmus.</small>'}</section>
   <section class="card"><h3>Koffein (mg) <span style="text-transform:none">Ø ${Math.round(avg(nz(cof)) || 0)} mg</span></h3>${barChart(dates, cof, { limit: DB.cfg.limit, colorFn: v => v > DB.cfg.limit ? 'var(--bad)' : 'var(--acc)' })}</section>
   <section class="card"><h3>Sport (Einheiten) <span style="text-transform:none">${nz(spt).length} Tage · ${nz(spt).reduce((a, b) => a + b, 0)}×</span></h3>${barChart(dates, spt, { colorFn: () => 'var(--pos)' })}</section>
   <section class="card"><h3>Gewohnheiten</h3>${hab || '<small>Noch keine angelegt.</small>'}</section>`;
