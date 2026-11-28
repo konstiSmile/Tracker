@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.17';
+const VERSION = '4.18';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -408,10 +408,12 @@ function sleepScore(d) {
   const have = P.filter(x => x[2] != null), max = have.reduce((a, x) => a + x[1], 0), got = have.reduce((a, x) => a + x[2], 0);
   return { v: Math.round(got / max * 100), P, part: have.length < P.length };
 }
+const SCORE_C = v => v >= 85 ? 'sc4' : v >= 70 ? 'sc3' : v >= 55 ? 'sc2' : 'sc1';
+const scoreRing = (v, sz) => { const r = 15, c = 2 * Math.PI * r; return `<span class="sring ${SCORE_C(v)} ${sz || ''}" role="img" aria-label="Schlafscore ${v}"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="${r}" class="bg"/><circle cx="18" cy="18" r="${r}" class="fg" stroke-dasharray="${c * v / 100} ${c}" transform="rotate(-90 18 18)"/></svg><b>${v}</b></span>`; };
 const SCORE_N = v => v >= 85 ? 'sehr gut' : v >= 70 ? 'gut' : v >= 55 ? 'mittel' : 'schwach';
 function scoreBox(d) {
   const r = sleepScore(d); if (!r) return '';
-  return `<button class="slscore" data-act="tog" data-k="slsc" aria-expanded="${!!S.open.slsc}"><span class="grow"><b>Schlafscore</b> <span class="mut">${SCORE_N(r.v)}${r.part ? ' · vorläufig' : ''}</span></span><b class="big2">${r.v}</b>${gl(S.open.slsc ? 'up' : 'down')}</button>
+  return `<button class="slscore" data-act="tog" data-k="slsc" aria-expanded="${!!S.open.slsc}"><span class="grow"><b>Schlafscore</b> <span class="mut">${SCORE_N(r.v)}${r.part ? ' · vorläufig' : ''}</span></span>${scoreRing(r.v, 'lg')}${gl(S.open.slsc ? 'up' : 'down')}</button>
     ${S.open.slsc ? `<div class="slparts">${r.P.map(([n, m, v]) => `<div class="kv"><span>${n}</span><span>${v == null ? 'noch zu wenig Daten' : Math.round(v) + ' von ' + m}</span></div>`).join('')}${r.part ? '<small class="mut">Regelmäßigkeit und Körper brauchen mindestens 5 Nächte mit Uhrdaten in den letzten 14 Tagen. Bis dahin wird mit den übrigen Teilen gerechnet.</small>' : ''}</div>` : ''}`;
 }
 /* Leere Felder der letzten 14 Tage aus den Health-Daten füllen. Rückgabe: ob sich etwas geändert hat. */
@@ -750,7 +752,7 @@ function viewHeute() {
 `;
   const M = {
     mood: ['Stimmung', '', mlog.length ? (mlog.length > 1 ? 'Ø ' : '') + f1(m.v) + ' · ' + MOOD_N[Math.round(m.v) - 1] : 'offen'],
-    sleep: ['Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`, dur != null ? fmtDur(dur) + (sleepScore(d) ? ' · Score ' + sleepScore(d).v : sl.q ? ' · ' + REST_N[sl.q - 1] : '') : 'offen'],
+    sleep: ['Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`, dur != null ? fmtDur(dur) + (sleepScore(d) ? ' ' + scoreRing(sleepScore(d).v) : sl.q ? ' · ' + REST_N[sl.q - 1] : '') : 'offen'],
     coffee: ['Koffein', `${mg} / ${lim} mg`, `${mg} / ${lim} mg`],
     sport: ['Sport', sp.length ? sp.length + '×' : '', sp.length ? sp.length + '×' : 'offen'],
     habit: ['Gewohnheiten', posVis.length ? `${posDone} von ${posVis.length}` : '', posVis.length ? `${posDone} von ${posVis.length}` : '']

@@ -417,7 +417,13 @@ html::after{content:"";position:fixed;left:0;right:0;top:auto;bottom:0;height:ca
 .slleg span{display:inline-flex;align-items:center;gap:5px}
 .slleg i{width:10px;height:10px;border-radius:3px;flex:none}
 .slscore{display:flex;align-items:center;gap:var(--s-1);width:100%;min-height:var(--tap);margin-top:var(--s-2);padding:8px 12px;border-radius:var(--r-m);background:var(--inset);text-align:left}
-.slscore .big2{font-family:var(--serif);font-size:24px}
 .slscore .gl{width:18px;height:18px;flex:none;color:var(--mut)}
 .slparts{margin-top:var(--s-1)}
 .slparts small{display:block;margin-top:var(--s-1)}
+.sring{position:relative;display:inline-grid;place-items:center;width:30px;height:30px;vertical-align:middle;flex:none;--sc:#C0655F}
+.sring svg{position:absolute;inset:0;width:100%;height:100%}
+.sring circle{fill:none;stroke-width:3.5;stroke-linecap:round}
+.sring .bg{stroke:var(--inset-2)} .sring .fg{stroke:var(--sc)}
+.sring b{position:relative;font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.sring.lg{width:44px;height:44px} .sring.lg b{font-size:16px}
+.sring.sc2{--sc:#D9934F} .sring.sc3{--sc:#9AAE4E} .sring.sc4{--sc:#4E9A72}
