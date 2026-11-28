@@ -238,6 +238,9 @@ Eigenes Zeitrad statt der Browser-Zeitfelder: Stunden 00–23, Minuten in 5-Minu
 ## Version 4.13 (27.11.2026) – Sport als Kacheln
 - Sport-Karte und Check-in Schritt 6: Dreier-Kacheln wie bei den Gewohnheiten (`.hab` in `.hgrid`), Zähler „2ד oben rechts, „Neu“ als Kachel. Namen der Sportarten unverändert (Einträge hängen am Namen).
 
+## Version 4.17 (28.11.2026)
+- Schlafscore 0–100 in der Schlaf-Karte (aufklappbar mit Teilen), zugeklappt im Kopf „· Score x“. Nur Uhrdaten, berechnet statt gespeichert (rückwirkend): Dauer 35 (7–9 h voll, 4 h = 0) · Schlafphasen 20 (Tief 13–23 %, REM 20–25 % des Schlafs) · Ruhe 15 (Wachminuten 5–40, −1 je Wachphase über 2) · Regelmäßigkeit 15 (Abweichung Einschlafzeit vom 14-Tage-Schnitt, 30–120 min) · Körper 15 (HRV/Schnitt 0,8–1,1; Ruhepuls −2 bis +6 zum Schnitt). Schnitt braucht ≥ 5 Nächte in 14 Tagen, sonst „vorläufig“ und Hochrechnung auf vorhandene Teile. Morgen-Antworten und Ursachen (Koffein, Sport …) bewusst nicht im Score. Test t20.
+
 ## Version 4.16 (28.11.2026)
 - Schlaf-Karte: Schlafverlauf als Diagramm (Wach · REM · Kern · Tief über die Nacht) mit Legende in Stunden. Quelle sind die Health-Rohdaten (`tracker-health`, jede Phase mit Start/Ende) – Kurzbefehl unverändert. Ohne Rohdaten oder ohne Phasen bleibt die bisherige Zeile. Test t19.
 

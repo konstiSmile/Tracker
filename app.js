@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.16';
+const VERSION = '4.17';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -385,6 +385,35 @@ function sleepChart(d) {
   const leg = SL_ROWS.filter(([k]) => sum[k]).map(([k, lab, c]) => `<span><i style="background:${c}"></i>${lab}\u00a0${fmtDur(Math.round(sum[k])).replace(' h', '').replace(' ', '\u00a0')}</span>`).join('');
   return `<div class="slchart">${s}<div class="slleg">${leg}</div></div>`;
 }
+/* Schlafscore (4.17): 0–100, nur aus Uhrdaten, berechnet (nicht gespeichert). Fehlt ein Teil, wird auf die vorhandenen Teile hochgerechnet. */
+const lin = (v, a, b) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+function slBase(d, f) { const v = []; for (let i = 1; i <= 14; i++) { const x = f(day(addDays(d, -i)).sleep || {}); if (x != null && isFinite(x)) v.push(x); } return v.length >= 5 ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+const bedMin = sl => sl.bed ? (tmin(sl.bed) - 1080 + 1440) % 1440 : null;   // Minuten ab 18 Uhr
+function sleepScore(d) {
+  const sl = day(d).sleep || {}; if (sl.src !== 'uhr' && !sl.deep) return null;
+  const ph = (sl.deep || 0) + (sl.rem || 0) + (sl.light || 0), tot = ph || sleepDur(sl); if (!tot) return null;
+  const P = [], h = tot / 60;
+  P.push(['Dauer', 35, 35 * (h < 7 ? lin(h, 4, 7) : h > 9 ? 1 - lin(h, 9, 12) * .6 : 1)]);
+  if (sl.deep != null && sl.rem != null && ph) {
+    const out = (v, lo, hi) => v < lo ? lo - v : v > hi ? v - hi : 0, dp = sl.deep / ph * 100, rp = sl.rem / ph * 100;
+    P.push(['Schlafphasen', 20, 10 * (1 - lin(out(dp, 13, 23), 0, 10)) + 10 * (1 - lin(out(rp, 20, 25), 0, 10))]);
+  } else P.push(['Schlafphasen', 20, null]);
+  if (sl.awake != null || hlSegs(d)) { const g = hlSegs(d), n = g ? g.L.filter(x => x.k === 'awake').length : 0;
+    P.push(['Ruhe', 15, Math.max(0, 15 * (1 - lin(sl.awake || 0, 5, 40)) - Math.max(0, n - 2))]); } else P.push(['Ruhe', 15, null]);
+  const bb = slBase(d, bedMin), bm = bedMin(sl);
+  P.push(['Regelmäßigkeit', 15, bb != null && bm != null ? 15 * (1 - lin(Math.abs(bm - bb), 30, 120)) : null]);
+  const hb = slBase(d, x => x.hrv), rb = slBase(d, x => x.rhr), k = [];
+  if (hb && sl.hrv) k.push(lin(sl.hrv / hb, .8, 1.1)); if (rb && sl.rhr) k.push(1 - lin(sl.rhr - rb, -2, 6));
+  P.push(['Körper (HRV, Ruhepuls)', 15, k.length ? 15 * k.reduce((a, b) => a + b, 0) / k.length : null]);
+  const have = P.filter(x => x[2] != null), max = have.reduce((a, x) => a + x[1], 0), got = have.reduce((a, x) => a + x[2], 0);
+  return { v: Math.round(got / max * 100), P, part: have.length < P.length };
+}
+const SCORE_N = v => v >= 85 ? 'sehr gut' : v >= 70 ? 'gut' : v >= 55 ? 'mittel' : 'schwach';
+function scoreBox(d) {
+  const r = sleepScore(d); if (!r) return '';
+  return `<button class="slscore" data-act="tog" data-k="slsc" aria-expanded="${!!S.open.slsc}"><span class="grow"><b>Schlafscore</b> <span class="mut">${SCORE_N(r.v)}${r.part ? ' · vorläufig' : ''}</span></span><b class="big2">${r.v}</b>${gl(S.open.slsc ? 'up' : 'down')}</button>
+    ${S.open.slsc ? `<div class="slparts">${r.P.map(([n, m, v]) => `<div class="kv"><span>${n}</span><span>${v == null ? 'noch zu wenig Daten' : Math.round(v) + ' von ' + m}</span></div>`).join('')}${r.part ? '<small class="mut">Regelmäßigkeit und Körper brauchen mindestens 5 Nächte mit Uhrdaten in den letzten 14 Tagen. Bis dahin wird mit den übrigen Teilen gerechnet.</small>' : ''}</div>` : ''}`;
+}
 /* Leere Felder der letzten 14 Tage aus den Health-Daten füllen. Rückgabe: ob sich etwas geändert hat. */
 function hlFill() {
   const A = hlAll(), from = addDays(todayStr(), -14); let ch = false;
@@ -689,6 +718,7 @@ function viewHeute() {
     <div class="tfield">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow sldur"><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small><div class="big">${fmtDur(dur)}</div></div></div>
     ${slc}
+    ${scoreBox(d)}
     ${(!slc && (sl.deep || sl.rem)) || sl.rhr || sl.hrv || D.steps ? `<small class="mut hlrow">${[!slc && sl.deep ? 'Tief ' + fmtDur(sl.deep).replace(' h', '') : '', !slc && sl.rem ? 'REM ' + fmtDur(sl.rem).replace(' h', '') : '', sl.rhr ? 'Ruhepuls ' + sl.rhr : '', sl.hrv ? 'HRV ' + sl.hrv + ' ms' : '', D.steps ? D.steps.toLocaleString('de-DE') + ' Schritte' : ''].filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · ')}</small>` : ''}
     ${sl.q || sl.fall || sl.note ? `<small class="mut slsum">${[sl.q ? REST_N[sl.q - 1] : '', sl.fall ? FALL_N[sl.fall] : ''].filter(Boolean).join(' · ')}${sl.note ? `<br>${esc(sl.note)}` : ''}</small>` : ''}
     <button class="more" data-act="moopen"><span>${D.mo ? 'Morgen-Check-in ändern' : 'Morgen-Check-in'}</span>${D.mo ? gl('check') : gl('right')}</button>
@@ -720,7 +750,7 @@ function viewHeute() {
 `;
   const M = {
     mood: ['Stimmung', '', mlog.length ? (mlog.length > 1 ? 'Ø ' : '') + f1(m.v) + ' · ' + MOOD_N[Math.round(m.v) - 1] : 'offen'],
-    sleep: ['Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`, dur != null ? fmtDur(dur) + (sl.q ? ' · ' + REST_N[sl.q - 1] : '') : 'offen'],
+    sleep: ['Schlaf', `Nacht auf ${isToday ? 'heute' : 'diesen Tag'}`, dur != null ? fmtDur(dur) + (sleepScore(d) ? ' · Score ' + sleepScore(d).v : sl.q ? ' · ' + REST_N[sl.q - 1] : '') : 'offen'],
     coffee: ['Koffein', `${mg} / ${lim} mg`, `${mg} / ${lim} mg`],
     sport: ['Sport', sp.length ? sp.length + '×' : '', sp.length ? sp.length + '×' : 'offen'],
     habit: ['Gewohnheiten', posVis.length ? `${posDone} von ${posVis.length}` : '', posVis.length ? `${posDone} von ${posVis.length}` : '']

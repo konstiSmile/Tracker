@@ -416,3 +416,8 @@ html::after{content:"";position:fixed;left:0;right:0;top:auto;bottom:0;height:ca
 .slleg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--mut)}
 .slleg span{display:inline-flex;align-items:center;gap:5px}
 .slleg i{width:10px;height:10px;border-radius:3px;flex:none}
+.slscore{display:flex;align-items:center;gap:var(--s-1);width:100%;min-height:var(--tap);margin-top:var(--s-2);padding:8px 12px;border-radius:var(--r-m);background:var(--inset);text-align:left}
+.slscore .big2{font-family:var(--serif);font-size:24px}
+.slscore .gl{width:18px;height:18px;flex:none;color:var(--mut)}
+.slparts{margin-top:var(--s-1)}
+.slparts small{display:block;margin-top:var(--s-1)}
