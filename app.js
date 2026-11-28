@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.15';
+const VERSION = '4.16';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -361,6 +361,30 @@ function hlSleep(txt, d) {
   ['deep', 'rem', 'light', 'awake'].forEach(k => { if (sum[k]) r[k] = Math.round(sum[k]); });
   return r;
 }
+/* Schlafverlauf (4.16): einzelne Phasen der Nacht aus den Health-Rohdaten, nur wenn die Uhr Phasen liefert. */
+function hlSegs(d) {
+  const txt = (hlAll()[d] || {}).sleep; if (!txt) return null;
+  const lo = parse(addDays(d, -1)).getTime() + 18 * 3600000, hi = parse(d).getTime() + 14 * 3600000;
+  const L = hlLines(txt).filter(x => x.e.getTime() > lo && x.e.getTime() <= hi).map(x => Object.assign(x, { k: hlKind(x.v) })).filter(x => ['deep', 'rem', 'light', 'awake'].includes(x.k));
+  if (!L.some(x => x.k !== 'awake')) return null;
+  const sl = L.filter(x => x.k !== 'awake'), b = Math.min(...sl.map(x => x.s)), w = Math.max(...sl.map(x => x.e));
+  return { b, w, L: L.filter(x => x.e > b && x.s < w).sort((x, y) => x.s - y.s) };
+}
+const SL_ROWS = [['awake', 'Wach', 'var(--f4)'], ['rem', 'REM', 'var(--t2)'], ['light', 'Kern', 'var(--t3)'], ['deep', 'Tief', 'var(--t4)']];
+function sleepChart(d) {
+  const g = hlSegs(d); if (!g) return '';
+  const W = 340, pl = 34, pr = 4, rh = 14, gap = 6, H = SL_ROWS.length * (rh + gap) + 14, span = g.w - g.b;
+  const x = t => pl + (W - pl - pr) * (Math.min(g.w, Math.max(g.b, t)) - g.b) / span, sum = {};
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Schlafverlauf">`;
+  SL_ROWS.forEach(([k, lab], i) => { const y = i * (rh + gap); s += `<rect x="${pl}" y="${y}" width="${W - pl - pr}" height="${rh}" rx="3" fill="var(--inset)"/><text x="0" y="${y + rh - 3}">${lab}</text>`; });
+  g.L.forEach(v => { const i = SL_ROWS.findIndex(r => r[0] === v.k), x0 = x(v.s), x1 = x(v.e); sum[v.k] = (sum[v.k] || 0) + (Math.min(g.w, +v.e) - Math.max(g.b, +v.s)) / 60000;
+    s += `<rect x="${x0}" y="${i * (rh + gap)}" width="${Math.max(1.5, x1 - x0)}" height="${rh}" rx="2" fill="${SL_ROWS[i][2]}"/>`; });
+  const yT = H - 2, h0 = new Date(g.b); h0.setMinutes(0, 0, 0);
+  for (let t = h0.getTime() + 3600000; t < g.w; t += 3600000) { const xx = x(t); if (xx - pl > 44 && W - pr - xx > 44 && new Date(t).getHours() % 2 === 0) s += `<line x1="${xx}" x2="${xx}" y1="0" y2="${H - 14}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${xx}" y="${yT}" text-anchor="middle">${new Date(t).getHours()}</text>`; }
+  s += `<text x="${pl}" y="${yT}">${hm(new Date(g.b))}</text><text x="${W - pr}" y="${yT}" text-anchor="end">${hm(new Date(g.w))}</text></svg>`;
+  const leg = SL_ROWS.filter(([k]) => sum[k]).map(([k, lab, c]) => `<span><i style="background:${c}"></i>${lab}\u00a0${fmtDur(Math.round(sum[k])).replace(' h', '').replace(' ', '\u00a0')}</span>`).join('');
+  return `<div class="slchart">${s}<div class="slleg">${leg}</div></div>`;
+}
 /* Leere Felder der letzten 14 Tage aus den Health-Daten füllen. Rückgabe: ob sich etwas geändert hat. */
 function hlFill() {
   const A = hlAll(), from = addDays(todayStr(), -14); let ch = false;
@@ -659,11 +683,13 @@ function viewHeute() {
       <div class="lbl">Freie Notiz</div>
       <textarea data-f="mood.note" placeholder="Was dir sonst noch durch den Kopf geht …">${esc(m.note || '')}</textarea>` : ''}
 `;
+  const slc = sleepChart(d);
   P.sleep = `
     <div class="row slrow"><div class="tfield">Ins Bett<button class="timebtn" data-act="tpick" data-t="sleep.bed">${sl.bed || '–:–'}</button></div>
     <div class="tfield">Aufgewacht<button class="timebtn" data-act="tpick" data-t="sleep.wake">${sl.wake || '–:–'}</button></div>
     <div class="grow sldur"><small>${sl.score ? 'Uhr-Score ' + sl.score : sl.src === 'uhr' ? 'von der Uhr' : ''}</small><div class="big">${fmtDur(dur)}</div></div></div>
-    ${sl.deep || sl.rem || sl.rhr || sl.hrv || D.steps ? `<small class="mut hlrow">${[sl.deep ? 'Tief ' + fmtDur(sl.deep).replace(' h', '') : '', sl.rem ? 'REM ' + fmtDur(sl.rem).replace(' h', '') : '', sl.rhr ? 'Ruhepuls ' + sl.rhr : '', sl.hrv ? 'HRV ' + sl.hrv + ' ms' : '', D.steps ? D.steps.toLocaleString('de-DE') + ' Schritte' : ''].filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · ')}</small>` : ''}
+    ${slc}
+    ${(!slc && (sl.deep || sl.rem)) || sl.rhr || sl.hrv || D.steps ? `<small class="mut hlrow">${[!slc && sl.deep ? 'Tief ' + fmtDur(sl.deep).replace(' h', '') : '', !slc && sl.rem ? 'REM ' + fmtDur(sl.rem).replace(' h', '') : '', sl.rhr ? 'Ruhepuls ' + sl.rhr : '', sl.hrv ? 'HRV ' + sl.hrv + ' ms' : '', D.steps ? D.steps.toLocaleString('de-DE') + ' Schritte' : ''].filter(Boolean).map(x => x.replace(/ /g, '\u00a0')).join(' · ')}</small>` : ''}
     ${sl.q || sl.fall || sl.note ? `<small class="mut slsum">${[sl.q ? REST_N[sl.q - 1] : '', sl.fall ? FALL_N[sl.fall] : ''].filter(Boolean).join(' · ')}${sl.note ? `<br>${esc(sl.note)}` : ''}</small>` : ''}
     <button class="more" data-act="moopen"><span>${D.mo ? 'Morgen-Check-in ändern' : 'Morgen-Check-in'}</span>${D.mo ? gl('check') : gl('right')}</button>
 `;
