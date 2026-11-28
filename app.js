@@ -1,6 +1,6 @@
 'use strict';
 /* Tracker – Stimmung, Schlaf, Kaffee, Sport, Gewohnheiten. Daten nur lokal (localStorage). */
-const VERSION = '4.14';
+const VERSION = '4.15';
 const KEY = 'tracker-v1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -687,6 +687,7 @@ function viewHeute() {
   P.habit = `
     <div class="lbl" style="margin-top:0">Positiv</div>${hgrp('pos')}
     <div class="lbl">Negativ (antippen, wenn es passiert ist)</div>${hgrp('neg')}
+    ${supHab(D, arrow)}
     <button class="morehid autoh" data-act="tog" data-k="hauto" aria-expanded="${!!S.open.hauto}">Automatisch · ${AUTO_H.filter(a => a.f(d)).length} von ${AUTO_H.length}${arrow(S.open.hauto)}</button>
     ${S.open.hauto ? `<div class="hgrid two">${AUTO_H.map(a => autoHab(a, d)).join('')}</div>` : ''}
     ${hintLP('Lange drücken: bearbeiten, verstecken, löschen')}
@@ -725,6 +726,14 @@ function autoHab(a, d) {
   const v = a.f(d), n = autoStreak(a, d);
   const sub = v === null ? a.open + (n ? ` · ${n} ${n === 1 ? 'Tag' : 'Tage'} in Folge` : '') : v ? (n ? `${n} ${n === 1 ? 'Tag' : 'Tage'} in Folge` : '') : 'diesmal nicht';
   return `<div class="hab pos auto ${v ? 'on on-g' : v === null ? 'open' : ''}">${ic(a.i)}<span>${esc(a.name)}<small>${sub}</small></span>${v ? gl('check', 'chk') : ''}</div>`;
+}
+/* Supplemente als zugeklappter Bereich bei den Gewohnheiten (4.15) – gleiche Daten wie im Abend-Check-in (D.sup). */
+const SUP_IC = { kr: 'kraft' };
+function supHab(D, arrow) {
+  const s = D.sup || {}, n = SUP.filter(([k]) => s[k] != null).length, chk = gl('check', 'chk');
+  return `<button class="morehid autoh" data-act="tog" data-k="hsup" aria-expanded="${!!S.open.hsup}">Supplemente · ${n} von ${SUP.length}${arrow(S.open.hsup)}</button>
+    ${S.open.hsup ? `<div class="hgrid">${SUP.map(([k, l]) => { const on = s[k] != null; return `<button class="hab pos ${on ? 'on on-g' : ''}" data-act="sup" data-id="${k}" aria-pressed="${on}">${ic(SUP_IC[k] || 'pille')}<span>${esc(l)}</span>${on ? chk : ''}</button>`; }).join('')}${n < SUP.length ? `<button class="hab newh" data-act="supall">${gl('check')}<span>Alle genommen</span></button>` : ''}</div>
+    ${s.kr != null ? `<div class="evbox"><div class="evtop"><b>Kreatin</b><span class="evlab">${krLab(s.kr)}</span></div><input type="range" class="mslider evs" min="0" max="20" step="1" value="${s.kr}" data-rng="sup.kr" aria-label="Kreatin in Gramm, 0 bis 20"></div>` : ''}` : ''}`;
 }
 function streakTxt(h, d) {
   const n = streak(h, d);

@@ -59,6 +59,7 @@ const IC = {
   spaet: '<circle cx="19" cy="29" r="13.500" class="b"/><circle cx="19" cy="29" r="8.500" class="a"/><g transform="translate(25.500 -3) scale(.52)"><path d="M19.900 9.300A16 16 0 1 0 38.040 30.460 14 14 0 0 1 19.900 9.300z" class="d"/></g><circle cx="43" cy="20" r="1.700" class="c"/><circle cx="29" cy="6" r="1.300" class="c"/>',
   haken: '<circle cx="24" cy="24" r="15" class="b"/><path d="M34.610 13.390A15 15 0 0 1 13.390 34.610 16.500 16.500 0 0 0 34.610 13.390z" class="c"/><path d="M16.500 24.500l5 5 10-11" class="sp" stroke-width="3.600"/>',
   herz: '<path d="M24 14.500c3.500-6.500 15.500-5.500 15.500 4.500 0 8.500-9.500 15-15.500 21-6-6-15.500-12.500-15.500-21 0-10 12-11 15.500-4.500z" class="b"/><path d="M33.500 10.200c3.300.8 6 3.800 6 8.800 0 8.500-9.500 15-15.500 21 5-7 9.500-13 9.500-21 0-3.300 0-6.300 0-8.800z" class="c"/>',
+  pille: '<g transform="rotate(-45 24 24)"><rect x="9" y="16" width="30" height="16" rx="8" class="b"/><path d="M24 16h7a8 8 0 0 1 0 16h-7z" class="c"/><rect x="13" y="19.500" width="7" height="3" rx="1.500" class="a"/></g>',
   punkt: '<circle cx="24" cy="24" r="13" class="b"/><path d="M33.910 15.590A13 13 0 0 1 15.590 33.910 14 14 0 0 0 33.910 15.590z" class="c"/>',
 
   /* ---------- Tabs ---------- */
